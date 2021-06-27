@@ -4,9 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include <imgui.h>
-#include "ImGuiWrapperFunctionLibrary.generated.h"
+#include "ImGuiInteroperability.h"
 
+#include "ImGuiModule.h"
+
+#include "ImGuiWrapperFunctionLibrary.generated.h"
 
 class ConvertArrayFStringToArrayAnsi
 {
@@ -85,6 +87,106 @@ struct FStackUnwinding
 	//TArray<UFunction*> Stack;
 };
 
+UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+namespace EImGuiWindowFlags
+{
+	enum Type {
+		ImGuiWindowFlags_None                   = 0,
+		ImGuiWindowFlags_NoTitleBar             = 1 << 0,   // Disable title-bar
+		ImGuiWindowFlags_NoResize               = 1 << 1,   // Disable user resizing with the lower-right grip
+		ImGuiWindowFlags_NoMove                 = 1 << 2,   // Disable user moving the window
+		ImGuiWindowFlags_NoScrollbar            = 1 << 3,   // Disable scrollbars (window can still scroll with mouse or programmatically)
+		ImGuiWindowFlags_NoScrollWithMouse      = 1 << 4,   // Disable user vertically scrolling with mouse wheel. On child window, mouse wheel will be forwarded to the parent unless NoScrollbar is also set.
+		ImGuiWindowFlags_NoCollapse             = 1 << 5,   // Disable user collapsing window by double-clicking on it
+		ImGuiWindowFlags_AlwaysAutoResize       = 1 << 6,   // Resize every window to its content every frame
+		ImGuiWindowFlags_NoBackground           = 1 << 7,   // Disable drawing background color (WindowBg, etc.) and outside border. Similar as using SetNextWindowBgAlpha(0.0f).
+		ImGuiWindowFlags_NoSavedSettings        = 1 << 8,   // Never load/save settings in .ini file
+		ImGuiWindowFlags_NoMouseInputs          = 1 << 9,   // Disable catching mouse, hovering test with pass through.
+		ImGuiWindowFlags_MenuBar                = 1 << 10,  // Has a menu-bar
+		ImGuiWindowFlags_HorizontalScrollbar    = 1 << 11,  // Allow horizontal scrollbar to appear (off by default). You may use SetNextWindowContentSize(ImVec2(width,0.0f)); prior to calling Begin() to specify width. Read code in imgui_demo in the "Horizontal Scrolling" section.
+		ImGuiWindowFlags_NoFocusOnAppearing     = 1 << 12,  // Disable taking focus when transitioning from hidden to visible state
+		ImGuiWindowFlags_NoBringToFrontOnFocus  = 1 << 13,  // Disable bringing window to front when taking focus (e.g. clicking on it or programmatically giving it focus)
+		ImGuiWindowFlags_AlwaysVerticalScrollbar= 1 << 14,  // Always show vertical scrollbar (even if ContentSize.y < Size.y)
+		ImGuiWindowFlags_AlwaysHorizontalScrollbar=1<< 15,  // Always show horizontal scrollbar (even if ContentSize.x < Size.x)
+		ImGuiWindowFlags_AlwaysUseWindowPadding = 1 << 16,  // Ensure child windows without border uses style.WindowPadding (ignored by default for non-bordered child windows, because more convenient)
+		ImGuiWindowFlags_NoNavInputs            = 1 << 18,  // No gamepad/keyboard navigation within the window
+		ImGuiWindowFlags_NoNavFocus             = 1 << 19,  // No focusing toward this window with gamepad/keyboard navigation (e.g. skipped by CTRL+TAB)
+		ImGuiWindowFlags_UnsavedDocument        = 1 << 20,  // Append '*' to title without affecting the ID, as a convenience to avoid using the ### operator. When used in a tab/docking context, tab is selected on closure and closure is deferred by one frame to allow code to cancel the closure (with a confirmation popup, etc.) without flicker.
+		ImGuiWindowFlags_NoNav                  = ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus,
+		ImGuiWindowFlags_NoDecoration           = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse,
+		ImGuiWindowFlags_NoInputs               = ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus,
+
+		// [Internal]
+		ImGuiWindowFlags_NavFlattened           = 1 << 23,  // [BETA] Allow gamepad/keyboard navigation to cross over parent border to this child (only use on child that have no scrolling!)
+		ImGuiWindowFlags_ChildWindow            = 1 << 24,  // Don't use! For internal use by BeginChild()
+		ImGuiWindowFlags_Tooltip                = 1 << 25,  // Don't use! For internal use by BeginTooltip()
+		ImGuiWindowFlags_Popup                  = 1 << 26,  // Don't use! For internal use by BeginPopup()
+		ImGuiWindowFlags_Modal                  = 1 << 27,  // Don't use! For internal use by BeginPopupModal()
+		ImGuiWindowFlags_ChildMenu              = 1 << 28   // Don't use! For internal use by BeginMenu()
+
+		// [Obsolete]
+		//ImGuiWindowFlags_ResizeFromAnySide    = 1 << 17,  // --> Set io.ConfigWindowsResizeFromEdges=true and make sure mouse cursors are supported by backend (io.BackendFlags & ImGuiBackendFlags_HasMouseCursors)
+	};
+}
+
+
+// Flags for ImGui::InputText()
+UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+namespace EImGuiInputTextFlags
+{
+	enum Type {
+		ImGuiInputTextFlags_None                = 0,
+		ImGuiInputTextFlags_CharsDecimal        = 1 << 0,   // Allow 0123456789.+-*/
+		ImGuiInputTextFlags_CharsHexadecimal    = 1 << 1,   // Allow 0123456789ABCDEFabcdef
+		ImGuiInputTextFlags_CharsUppercase      = 1 << 2,   // Turn a..z into A..Z
+		ImGuiInputTextFlags_CharsNoBlank        = 1 << 3,   // Filter out spaces, tabs
+		ImGuiInputTextFlags_AutoSelectAll       = 1 << 4,   // Select entire text when first taking mouse focus
+		ImGuiInputTextFlags_EnterReturnsTrue    = 1 << 5,   // Return 'true' when Enter is pressed (as opposed to every time the value was modified). Consider looking at the IsItemDeactivatedAfterEdit() function.
+		ImGuiInputTextFlags_CallbackCompletion  = 1 << 6,   // Callback on pressing TAB (for completion handling)
+		ImGuiInputTextFlags_CallbackHistory     = 1 << 7,   // Callback on pressing Up/Down arrows (for history handling)
+		ImGuiInputTextFlags_CallbackAlways      = 1 << 8,   // Callback on each iteration. User code may query cursor position, modify text buffer.
+		ImGuiInputTextFlags_CallbackCharFilter  = 1 << 9,   // Callback on character inputs to replace or discard them. Modify 'EventChar' to replace or discard, or return 1 in callback to discard.
+		ImGuiInputTextFlags_AllowTabInput       = 1 << 10,  // Pressing TAB input a '\t' character into the text field
+		ImGuiInputTextFlags_CtrlEnterForNewLine = 1 << 11,  // In multi-line mode, unfocus with Enter, add new line with Ctrl+Enter (default is opposite: unfocus with Ctrl+Enter, add line with Enter).
+		ImGuiInputTextFlags_NoHorizontalScroll  = 1 << 12,  // Disable following the cursor horizontally
+		ImGuiInputTextFlags_AlwaysInsertMode    = 1 << 13,  // Insert mode
+		ImGuiInputTextFlags_ReadOnly            = 1 << 14,  // Read-only mode
+		ImGuiInputTextFlags_Password            = 1 << 15,  // Password mode, display all characters as '*'
+		ImGuiInputTextFlags_NoUndoRedo          = 1 << 16,  // Disable undo/redo. Note that input text owns the text data while active, if you want to provide your own undo/redo stack you need e.g. to call ClearActiveID().
+		ImGuiInputTextFlags_CharsScientific     = 1 << 17,  // Allow 0123456789.+-*/eE (Scientific notation input)
+		ImGuiInputTextFlags_CallbackResize      = 1 << 18,  // Callback on buffer capacity changes request (beyond 'buf_size' parameter value), allowing the string to grow. Notify when the string wants to be resized (for string types which hold a cache of their Size). You will be provided a new BufSize in the callback and NEED to honor it. (see misc/cpp/imgui_stdlib.h for an example of using this)
+		ImGuiInputTextFlags_CallbackEdit        = 1 << 19,  // Callback on any edit (note that InputText() already returns true on edit, the callback is useful mainly to manipulate the underlying buffer while focus is active)
+		// [Internal]
+		ImGuiInputTextFlags_Multiline           = 1 << 20,  // For internal use by InputTextMultiline()
+		ImGuiInputTextFlags_NoMarkEdited        = 1 << 21   // For internal use by functions using InputText() before reformatting data
+	};
+}
+
+// Flags for ImGui::TreeNodeEx(), ImGui::CollapsingHeader*()
+UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+namespace EImGuiTreeNodeFlags
+{
+	enum Type {
+		ImGuiTreeNodeFlags_None                 = 0,
+		ImGuiTreeNodeFlags_Selected             = 1 << 0,   // Draw as selected
+		ImGuiTreeNodeFlags_Framed               = 1 << 1,   // Draw frame with background (e.g. for CollapsingHeader)
+		ImGuiTreeNodeFlags_AllowItemOverlap     = 1 << 2,   // Hit testing to allow subsequent widgets to overlap this one
+		ImGuiTreeNodeFlags_NoTreePushOnOpen     = 1 << 3,   // Don't do a TreePush() when open (e.g. for CollapsingHeader) = no extra indent nor pushing on ID stack
+		ImGuiTreeNodeFlags_NoAutoOpenOnLog      = 1 << 4,   // Don't automatically and temporarily open node when Logging is active (by default logging will automatically open tree nodes)
+		ImGuiTreeNodeFlags_DefaultOpen          = 1 << 5,   // Default node to be open
+		ImGuiTreeNodeFlags_OpenOnDoubleClick    = 1 << 6,   // Need double-click to open node
+		ImGuiTreeNodeFlags_OpenOnArrow          = 1 << 7,   // Only open when clicking on the arrow part. If ImGuiTreeNodeFlags_OpenOnDoubleClick is also set, single-click arrow or double-click all box to open.
+		ImGuiTreeNodeFlags_Leaf                 = 1 << 8,   // No collapsing, no arrow (use as a convenience for leaf nodes).
+		ImGuiTreeNodeFlags_Bullet               = 1 << 9,   // Display a bullet instead of arrow
+		ImGuiTreeNodeFlags_FramePadding         = 1 << 10,  // Use FramePadding (even for an unframed text node) to vertically align text baseline to regular widget height. Equivalent to calling AlignTextToFramePadding().
+		ImGuiTreeNodeFlags_SpanAvailWidth       = 1 << 11,  // Extend hit box to the right-most edge, even if not framed. This is not the default in order to allow adding other items on the same line. In the future we may refactor the hit system to be front-to-back, allowing natural overlaps and then this can become the default.
+		ImGuiTreeNodeFlags_SpanFullWidth        = 1 << 12,  // Extend hit box to the left-most and right-most edges (bypass the indented area).
+		ImGuiTreeNodeFlags_NavLeftJumpsBackHere = 1 << 13,  // (WIP) Nav: left direction may move to this TreeNode() from any of its child (items submitted between TreeNode and TreePop)
+		//ImGuiTreeNodeFlags_NoScrollOnOpen     = 1 << 14,  // FIXME: TODO: Disable automatic scroll on TreePop() if node got just open and contents is not visible
+		ImGuiTreeNodeFlags_CollapsingHeader     = ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_NoAutoOpenOnLog
+	};
+}
+
 UENUM()
 namespace EImGuiButton
 {
@@ -136,6 +238,63 @@ inline FLinearColor ToLinearColor(const ImVec4& vec)
 	return FLinearColor(vec.x, vec.y, vec.z, vec.w);
 }
 
+USTRUCT(BlueprintType)
+struct FImGuiStylePointer
+{
+	GENERATED_BODY()
+
+	ImGuiStyle* style;
+};
+
+
+/*
+* 
+*/
+UCLASS()
+class IMGUI_API UImGuiStyleFunction : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+  
+	
+	UFUNCTION(BlueprintPure, Category="ImGui|ImGuiStyl")
+	static void GetColors(UPARAM(ref) FImGuiStylePointer& Style, int32 col, FLinearColor& OutColor)
+	{	OutColor = reinterpret_cast<FLinearColor&>(Style.style->Colors[static_cast<uint8>(col)]);	}
+	
+	
+	// To scale your entire UI (e.g. if you want your app to use High DPI or generally be DPI aware) you may use this helper function. Scaling the fonts is done separately and is up to you.
+	// Important: This operation is lossy because we round all sizes to integer. If you need to change your scale multiples, call this over a freshly initialized ImGuiStyle structure rather than scaling multiple times.
+	UFUNCTION(BlueprintCallable, Category="ImGui|ImGuiStyl")
+	static void SetScaleAllSizes(UPARAM(ref) FImGuiStylePointer& Style, float ScaleFactor)
+	{	Style.style->ScaleAllSizes(ScaleFactor);	}
+};
+
+UCLASS()
+class IMGUI_API UImGuiFunction : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+
+public:
+	UFUNCTION(BlueprintPure, Category = "ImGui|Utilities|Keyboard")
+	static int32 GetKeyIndex(const FKey& Key) { return ImGuiInterops::GetKeyIndex(Key); }
+	
+	UFUNCTION(BlueprintPure, Category = "ImGui")
+	static int64 GetTicks(UPARAM(ref) FDateTime& time) { return time.GetTicks(); }
+
+	UFUNCTION(BlueprintPure, Category = "ImGui")
+	static int64 ToUnixTimestamp(UPARAM(ref) FDateTime& time) { return time.ToUnixTimestamp(); }
+	
+
+	UFUNCTION(BlueprintPure, Category = "ImGui")
+	static FVector2D GetItemSpacing(UPARAM(ref) FImGuiStylePointer& Style)
+	{
+		return ToVector2D(Style.style->ItemSpacing);
+	}
+	
+};
+
 /**
  *
  */
@@ -165,8 +324,8 @@ public:
 	static void GetIO() { ImGui::GetIO(); }
 
 	/** access the Style structure (colors, sizes). Always use PushStyleCol(), PushStyleVar() to modify style mid-frame! */
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Main")
-	static void GetStyle() { ImGui::GetStyle(); }
+	UFUNCTION(BlueprintPure, Category = "ImGui|Main", meta=(DisplayName = "GetGuiStyle"))
+	static FImGuiStylePointer GetStyle() { FImGuiStylePointer s; s.style = &ImGui::GetStyle(); return s;}
 
 	/** start a new Dear ImGui frame, you can submit any command from this point until Render()/EndFrame(). */
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Main")
@@ -244,7 +403,7 @@ public:
 	
 	/** Windows */
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Windows", meta = (ExpandEnumAsExecs="OutResult", AdvancedDisplay = "1"))
-	static void Begin(const FString& name, UPARAM(ref) bool& open, TEnumAsByte<EImGuiFlowControl::Type>& OutResult, int32 ImGuiWindowFlags = 0)
+	static void Begin(const FString& name, UPARAM(ref) bool& open, TEnumAsByte<EImGuiFlowControl::Type>& OutResult, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiWindowFlags)) int32 ImGuiWindowFlags = 0)
 	{
 		OutResult = EImGuiFlowControl::Failure;
 		if(open && ImGui::Begin(TCHAR_TO_ANSI(*name), &open, ImGuiWindowFlags))
@@ -259,7 +418,7 @@ public:
 
 	/** Child Windows */
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Child Windows", meta = (ExpandEnumAsExecs="OutResult", AdvancedDisplay = "2"))
-	static void BeginChild(const FString& str_id, FVector2D size, TEnumAsByte<EImGuiFlowControl::Type>& OutResult, bool border = false, int32 ImGuiWindowFlags = 0)
+	static void BeginChild(const FString& str_id, FVector2D size, TEnumAsByte<EImGuiFlowControl::Type>& OutResult, bool border = false, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiWindowFlags)) int32 ImGuiWindowFlags = 0)
 	{		
 		OutResult = EImGuiFlowControl::Failure;
 		if(ImGui::BeginChild(TCHAR_TO_ANSI(*str_id), ImVec2(size.X, size.Y), border, ImGuiWindowFlags))
@@ -725,10 +884,10 @@ public:
 	/* Widgets: Text */
 
 	// raw text without formatting. Roughly equivalent to Text("%s", text) but: A) doesn't require null terminated string if 'text_end' is specified, B) it's faster, no memory copy is done, no buffer size limits, recommended for long chunks of text.
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Text")
+	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Text", meta = (AdvancedDisplay = "1"))
 	static void TextUnformatted(const FString& text, const FString& text_end)
 	{
-		ImGui::TextUnformatted(TCHAR_TO_ANSI(*text), TCHAR_TO_ANSI(*text_end));
+		ImGui::TextUnformatted(TCHAR_TO_ANSI(*text), text_end.Len() > 0 ? TCHAR_TO_ANSI(*text_end) : nullptr);
 	}
 
 	// formatted text
@@ -766,21 +925,30 @@ public:
 
 
 	// button
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main")
-	static bool Button(const FString& label, FVector2D size)
+	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main", meta = (ExpandEnumAsExecs="OutResult"))
+	static void Button(const FString& label, FVector2D size, TEnumAsByte<EImGuiButton::Type>& OutResult)
 	{
-		return ImGui::Button(TCHAR_TO_ANSI(*label), ToImVec2(size));
+		OutResult = EImGuiButton::None;
+		if(ImGui::Button(TCHAR_TO_ANSI(*label), ToImVec2(size)))
+			OutResult = EImGuiButton::Pressed;
 	}
 
 	// button with FramePadding=(0,0) to easily embed within text
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main")
-	static bool SmallButton(const FString& label) { return ImGui::SmallButton(TCHAR_TO_ANSI(*label)); }
+	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main", meta = (ExpandEnumAsExecs="OutResult"))
+	static void SmallButton(const FString& label, TEnumAsByte<EImGuiButton::Type>& OutResult)
+	{
+		OutResult = EImGuiButton::None;
+		if(ImGui::SmallButton(TCHAR_TO_ANSI(*label)))
+			OutResult = EImGuiButton::Pressed;
+	}
 
 	// flexible button behavior without the visuals, frequently useful to build custom behaviors using the public api (along with IsItemActive, IsItemHovered, etc.)
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main")
-	static bool InvisibleButton(const FString& str_id, const FVector2D& size, int32 ImGuiButtonFlags = 0)
+	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main", meta = (ExpandEnumAsExecs="OutResult"))
+	static void InvisibleButton(const FString& str_id, const FVector2D& size, TEnumAsByte<EImGuiButton::Type>& OutResult, int32 ImGuiButtonFlags = 0)
 	{
-		return ImGui::InvisibleButton(TCHAR_TO_ANSI(*str_id), ToImVec2(size), ImGuiButtonFlags);
+		OutResult = EImGuiButton::None;
+		if(ImGui::InvisibleButton(TCHAR_TO_ANSI(*str_id), ToImVec2(size), ImGuiButtonFlags))
+			OutResult = EImGuiButton::Pressed;
 	}
 
 	// square button with an arrow shape
@@ -790,9 +958,17 @@ public:
 		return ImGui::ArrowButton(TCHAR_TO_ANSI(*str_id), ImGuiDir);
 	}
 
-	//UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main")
-	//static void Image(ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1,1), const ImVec4& tint_col = ImVec4(1,1,1,1), const ImVec4& border_col = ImVec4(0,0,0,0))
-	//{ return ImGui::Image();}
+	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main")
+	static void Image(UTexture2D* user_texture_id, const FVector2D& size, FVector2D uv0, FVector2D uv1, UPARAM(ref) FLinearColor& tint_col, UPARAM(ref) FLinearColor& border_col)
+	{
+		FImGuiTextureHandle handle = FImGuiModule::Get().FindTextureHandle(user_texture_id->GetFName());
+		if(!handle.IsValid())
+		{
+			handle = FImGuiModule::Get().RegisterTexture(user_texture_id->GetFName(), user_texture_id);
+		}
+		
+		ImGui::Image(handle, ToImVec2(size), ToImVec2(uv0), ToImVec2(uv1),ToImVec4(tint_col), ToImVec4(border_col));
+	}
 
 	// <0 frame_padding uses default frame padding settings. 0 for no padding
 	//UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Main")
@@ -952,8 +1128,8 @@ public:
 		}
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Regular Sliders", meta = (ExpandEnumAsExecs="OutResult"))
-	static void SliderArrayFloat(const FString& label, UPARAM(ref) TArray<float>& v, float v_min, float v_max, TEnumAsByte<EImGuiFlowControl::Type>& OutResult,
+	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Regular Sliders", meta = (ExpandEnumAsExecs="OutResult", DisplayName = "Slider float array"))
+	static void SliderFloatArray(const FString& label, UPARAM(ref) TArray<float>& v, float v_min, float v_max, TEnumAsByte<EImGuiFlowControl::Type>& OutResult,
 						FString format = TEXT("%.3f"), int32 ImGuiSliderFlags = 0)
 	{
 		OutResult = EImGuiFlowControl::Failure;
@@ -985,7 +1161,7 @@ public:
 		}
 	}
 	
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Regular Sliders", meta = (ExpandEnumAsExecs="OutResult"))
+	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Regular Sliders", meta = (ExpandEnumAsExecs="OutResult", DisplayName = "Slider int array"))
 	static void SliderArrayInt(const FString& label, UPARAM(ref) TArray<int32>& v, int32 v_min, int32 v_max, TEnumAsByte<EImGuiFlowControl::Type>& OutResult
 								, FString format = TEXT("%d"), int32 ImGuiSliderFlags = 0)
 	{
@@ -1026,7 +1202,7 @@ public:
 
 	//DECLARE_DYNAMIC_DELEGATE_OneParam(FImGuiInputTextCallback, FImGuiInputTextCallbackData, callbackData);
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Input with Keyboard")
-	static bool InputText(const FString& label, UPARAM(ref) FString& OutBuf, int32 ImGuiInputTextFlags = 0 /*, const FImGuiInputTextCallback& InputTextCallback, void* user_data = NULL*/)
+	static bool InputText(const FString& label, UPARAM(ref) FString& OutBuf, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiInputTextFlags)) int32 ImGuiInputTextFlags = 0 /*, const FImGuiInputTextCallback& InputTextCallback, void* user_data = NULL*/)
 	{
 		auto replacementLambda = [](ImGuiInputTextCallbackData* data)
 		{
@@ -1044,7 +1220,7 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Input with Keyboard")
-	static bool InputTextMultiline(const FString& label, UPARAM(ref) FString& OutBuf, FVector2D size = FVector2D(0, 0), int32 ImGuiInputTextFlags = 0/*, ImGuiInputTextCallback callback = NULL, void* user_data = NULL*/)
+	static bool InputTextMultiline(const FString& label, UPARAM(ref) FString& OutBuf, FVector2D size = FVector2D(0, 0), UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiInputTextFlags)) int32 ImGuiInputTextFlags = 0/*, ImGuiInputTextCallback callback = NULL, void* user_data = NULL*/)
 	{
 		static char buf[MAX_LENGTH];
 		bool succeeded = ImGui::InputTextMultiline(TCHAR_TO_ANSI(*label), buf, MAX_LENGTH, ToImVec2(size), ImGuiInputTextFlags, nullptr, nullptr);
@@ -1056,7 +1232,7 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Input with Keyboard")
-	static bool InputTextWithHint(const FString& label, UPARAM(ref) FString& OutHint, UPARAM(ref) FString& OutBuf, int32 ImGuiInputTextFlags = 0/*, ImGuiInputTextCallback callback = NULL, void* user_data = NULL*/)
+	static bool InputTextWithHint(const FString& label, UPARAM(ref) FString& OutHint, UPARAM(ref) FString& OutBuf, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiInputTextFlags)) int32 ImGuiInputTextFlags = 0/*, ImGuiInputTextCallback callback = NULL, void* user_data = NULL*/)
 	{
 		static char hint[MAX_LENGTH];
 		static char buf[MAX_LENGTH];
@@ -1072,25 +1248,25 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Input with Keyboard")
-	static bool InputFloat(const FString& label, TArray<float>& v, float step = 0.0f, float step_fast = 0.0f, FString format = TEXT("%.3f"), int32 ImGuiInputTextFlags = 0)
+	static bool InputFloat(const FString& label, TArray<float>& v, float step = 0.0f, float step_fast = 0.0f, FString format = TEXT("%.3f"), UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiInputTextFlags)) int32 ImGuiInputTextFlags = 0)
 	{
 		return ImGui::InputFloat(TCHAR_TO_ANSI(*label), v.GetData(), step, step_fast, TCHAR_TO_ANSI(*format), ImGuiInputTextFlags);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Input with Keyboard")
-	static bool InputFloatSimple(const FString& label, TArray<float>& v, FString format = TEXT("%.3f"), int32 ImGuiInputTextFlags = 0)
+	static bool InputFloatSimple(const FString& label, TArray<float>& v, FString format = TEXT("%.3f"), UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiInputTextFlags)) int32 ImGuiInputTextFlags = 0)
 	{
 		return ImGui::InputScalarN(TCHAR_TO_ANSI(*label), ImGuiDataType_Float, v.GetData(), v.Num(), nullptr, nullptr, TCHAR_TO_ANSI(*format), ImGuiInputTextFlags);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Input with Keyboard")
-	static bool InputInt(const FString& label, TArray<int>& v, int step = 1, int step_fast = 100, int32 ImGuiInputTextFlags = 0)
+	static bool InputInt(const FString& label, TArray<int>& v, int step = 1, int step_fast = 100, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiInputTextFlags)) int32 ImGuiInputTextFlags = 0)
 	{
 		return ImGui::InputInt(TCHAR_TO_ANSI(*label), v.GetData(), step, step_fast, ImGuiInputTextFlags);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Input with Keyboard")
-	static bool InputIntSimple(const FString& label, TArray<int>& v, FString format = TEXT("%d"), int32 ImGuiInputTextFlags = 0)
+	static bool InputIntSimple(const FString& label, TArray<int>& v, FString format = TEXT("%d"), UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiInputTextFlags)) int32 ImGuiInputTextFlags = 0)
 	{
 		return ImGui::InputScalarN(TCHAR_TO_ANSI(*label), ImGuiDataType_S32, v.GetData(), v.Num(), nullptr, nullptr, TCHAR_TO_ANSI(*format), ImGuiInputTextFlags);
 	}
@@ -1100,10 +1276,16 @@ public:
 
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Color Editor/Picker")
-	static bool ColorEdit(const FString& label, FLinearColor color, int32 ImGuiColorEditFlags = 0)
+	static bool ColorEdit(const FString& label, UPARAM(ref) FLinearColor& color, int32 ImGuiColorEditFlags = 0)
 	{
 		float col[4] = {color.R, color.G, color.B, color.A};
-		return ImGui::ColorEdit4(TCHAR_TO_ANSI(*label), col, ImGuiColorEditFlags);
+		bool result = ImGui::ColorEdit4(TCHAR_TO_ANSI(*label), col, ImGuiColorEditFlags);
+		color.R = col[0];
+		color.G = col[1];
+		color.B = col[2];
+		color.A = col[3];
+
+		return result;
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Color Editor/Picker")
@@ -1132,7 +1314,7 @@ public:
 	static bool TreeNode(const FString& label) { return ImGui::TreeNode(TCHAR_TO_ANSI(*label)); }
 
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Trees")
-	static bool TreeNodeEx(const FString& label, int32 ImGuiTreeNodeFlags = 0)
+	static bool TreeNodeEx(const FString& label, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiTreeNodeFlags)) int32 ImGuiTreeNodeFlags = 0)
 	{
 		return ImGui::TreeNodeEx(TCHAR_TO_ANSI(*label), ImGuiTreeNodeFlags);
 	}
@@ -1155,7 +1337,7 @@ public:
 
 	// when 'p_visible != NULL': if '*p_visible==true' display an additional small close button on upper right of the header which will set the bool to false when clicked, if '*p_visible==false' don't display the header.
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Widgets|Trees", meta = (ExpandEnumAsExecs="OutResult", AdvancedDisplay = "2"))
-	static void CollapsingHeader(const FString& label, UPARAM(ref) bool& p_visible, TEnumAsByte<EImGuiFlowControl::Type>& OutResult, int32 ImGuiTreeNodeFlags = 0)
+	static void CollapsingHeader(const FString& label, UPARAM(ref) bool& p_visible, TEnumAsByte<EImGuiFlowControl::Type>& OutResult, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiTreeNodeFlags)) int32 ImGuiTreeNodeFlags = 0)
 	{
 		OutResult = EImGuiFlowControl::Failure;
 		if(ImGui::CollapsingHeader(TCHAR_TO_ANSI(*label), &p_visible, ImGuiTreeNodeFlags))
@@ -1316,14 +1498,14 @@ public:
 
 	// return true if the popup is open, and you can start outputting to it.
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Popups|Modals")
-	static bool BeginPopup(const FString& str_id, int32 ImGuiWindowFlags = 0)
+	static bool BeginPopup(const FString& str_id, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiWindowFlags)) int32 ImGuiWindowFlags = 0)
 	{
 		return ImGui::BeginPopup(TCHAR_TO_ANSI(*str_id), ImGuiWindowFlags);
 	}
 	
 	// return true if the modal is open, and you can start outputting to it.
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Popups|Modals")
-	static bool BeginPopupModal(const FString& name, UPARAM(ref) bool& p_open, int32 ImGuiWindowFlags = 0)
+	static bool BeginPopupModal(const FString& name, UPARAM(ref) bool& p_open, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiWindowFlags)) int32 ImGuiWindowFlags = 0)
 	{
 		return ImGui::BeginPopupModal(TCHAR_TO_ANSI(*name), &p_open, ImGuiWindowFlags);
 	}
@@ -1773,7 +1955,7 @@ public:
 
 	// helper to create a child window / scrolling region that looks like a normal widget frame
 	UFUNCTION(BlueprintCallable, Category = "ImGui|Utilities")
-	static bool BeginChildFrame(int32 ImGuiID, const FVector2D& size, int32 ImGuiWindowFlags = 0)
+	static bool BeginChildFrame(int32 ImGuiID, const FVector2D& size, UPARAM(meta=(Bitmask, BitmaskEnum=EImGuiWindowFlags)) int32 ImGuiWindowFlags = 0)
 	{ return ImGui::BeginChildFrame(ImGuiID, ToImVec2(size), ImGuiWindowFlags); }
 
 	// always call EndChildFrame() regardless of BeginChildFrame() return values (which indicates a collapsed/clipped window)
@@ -1822,16 +2004,16 @@ public:
 	static int32 GetKeyIndex(int32 ImGuiKey) { return ImGui::GetKeyIndex(ImGuiKey); }
 
 	// is key being held. == io.KeysDown[user_key_index].
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Utilities|Keyboard")
+	UFUNCTION(BlueprintPure, Category = "ImGui|Utilities|Keyboard")
 	static bool IsKeyDown(int32 user_key_index) { return ImGui::IsKeyDown(user_key_index); }
 
 	// was key pressed (went from !Down to Down)? if repeat=true, uses io.KeyRepeatDelay / KeyRepeatRate
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Utilities|Keyboard")
+	UFUNCTION(BlueprintPure, Category = "ImGui|Utilities|Keyboard")
 	static bool IsKeyPressed(int32 user_key_index, bool repeat = true)
 	{ return ImGui::IsKeyPressed(user_key_index, repeat); }
 
 	// was key released (went from Down to !Down)?
-	UFUNCTION(BlueprintCallable, Category = "ImGui|Utilities|Keyboard")
+	UFUNCTION(BlueprintPure, Category = "ImGui|Utilities|Keyboard")
 	static bool IsKeyReleased(int32 user_key_index) { return ImGui::IsKeyReleased(user_key_index); }
 
 	// uses provided repeat rate/delay. return a count, most often 0 or 1 but might be >1 if RepeatRate is small enough that DeltaTime > RepeatRate
@@ -1855,7 +2037,7 @@ public:
 	static bool IsMouseDown(int32 ImGuiMouseButton)	{ return ImGui::IsMouseDown(ImGuiMouseButton); }
 
 	// did mouse button clicked? (went from !Down to Down)
-	UFUNCTION(BlueprintPure, Category = "ImGui|Utilities|Mouse")
+	UFUNCTION(BlueprintPure, Category = "ImGui|Utilities|Mouse", meta = (AdvancedDisplay = "1"))
 	static bool IsMouseClicked(int32 ImGuiMouseButton, bool repeat = false)
 	{ return ImGui::IsMouseClicked(ImGuiMouseButton, repeat); }
 

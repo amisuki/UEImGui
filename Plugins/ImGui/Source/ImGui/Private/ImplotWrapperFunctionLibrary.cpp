@@ -6,6 +6,10 @@
 static TArray<TArray<float>> TwoDimensionalArray;
 const FLinearColor UImplotWrapperFunctionLibrary::UE_IMPLOT_AUTO_COL(0.f,0.f,0.f, -1.0f);
 
+const FFunctionDelegateFloat* UImplotWrapperFunctionLibrary::PlotLineGCallback = nullptr;
+const FFunctionDelegateFloat* UImplotWrapperFunctionLibrary::PlotShadedCallback1 = nullptr;
+const FFunctionDelegateFloat* UImplotWrapperFunctionLibrary::PlotShadedCallback2 = nullptr;
+
 
 /* Example function for parsing a single property
 * @param Property    the property reflection data
@@ -69,9 +73,48 @@ void ParseProperty(FProperty* Property, void* ValuePtr)
             ParseProperty(ArrayProperty->Inner, Helper.GetRawPtr(i));
         }
     }
-
 }
 
+void UImplotFunction::MakeNormalDistribution(FNormalDistribution& distribution, float mean, float sd)
+{
+    auto RandomGauss = []()
+    {
+        static double V1, V2, S;
+        static int phase = 0;
+        double X;
+        if(phase == 0) {
+            do {
+                double U1 = (double)FMath::Rand() / RAND_MAX;
+                double U2 = (double)FMath::Rand() / RAND_MAX;
+                V1 = 2 * U1 - 1;
+                V2 = 2 * U2 - 1;
+                S = V1 * V1 + V2 * V2;
+            } while(S >= 1 || S == 0);
+
+            X = V1 * sqrt(-2 * log(S) / S);
+        } else
+            X = V2 * sqrt(-2 * log(S) / S);
+        phase = 1 - phase;
+        return X;
+    };
+    
+    distribution.Data.Empty();
+    distribution.Data.SetNumZeroed(distribution.count);
+    for (int i = 0; i < distribution.count; ++i)
+    {
+        distribution.Data[i] = RandomGauss()*sd + mean;
+    }
+}
+
+int32 UImplotFunction::Conv_ImPlotMarkerToInt(EImPlotMarker ImPlotMarker)
+{
+    return ToInt32(ImPlotMarker);
+}
+
+int32 UImplotFunction::Conv_ImPlotFlagsToInt(TEnumAsByte<EImPlotFlags::Type> ImPlotFlags)
+{
+    return ToInt32(ImPlotFlags);
+}
 
 void UImplotWrapperFunctionLibrary::Array_Shuffle2(const TArray<int32>& TargetArray)
 {

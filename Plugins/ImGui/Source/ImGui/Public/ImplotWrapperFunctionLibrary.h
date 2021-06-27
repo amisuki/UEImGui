@@ -6,8 +6,16 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include <implot.h>
 
+#include "ImGuiModule.h"
 #include "ImGuiWrapperFunctionLibrary.h"
 #include "ImplotWrapperFunctionLibrary.generated.h"
+
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FFunctionDelegateFloat, int32, index, FVector2D&, point);
+
+inline ImPlotPoint ToImPlotPoint(const FVector2D& vec)
+{
+	return ImPlotPoint(vec.X, vec.Y);
+}
 
 UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
 namespace EImPlotFlags
@@ -31,8 +39,12 @@ namespace EImPlotFlags
 	};
 }
 
+static int32 ToInt32(TEnumAsByte<EImPlotFlags::Type> E)
+{
+	return static_cast<int32>(E);
+}
 
-//UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
 namespace EImPlotAxisFlags
 {
 	enum Type {
@@ -124,46 +136,50 @@ enum class EImPlotStyleVar : uint8
 };
 
 
-UENUM(BlueprintType)//, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
-namespace EImPlotMarker
+UENUM(BlueprintType)
+enum class EImPlotMarker : uint8
 {
-	enum Type {
-		ImPlotMarker_None = -1, // no marker
-		ImPlotMarker_Circle = 0,// a circle marker
-		ImPlotMarker_Square,    // a square maker
-		ImPlotMarker_Diamond,   // a diamond marker
-		ImPlotMarker_Up,        // an upward-pointing triangle marker
-		ImPlotMarker_Down,      // an downward-pointing triangle marker
-		ImPlotMarker_Left,      // an leftward-pointing triangle marker
-		ImPlotMarker_Right,     // an rightward-pointing triangle marker
-		ImPlotMarker_Cross,     // a cross marker (not fillable)
-		ImPlotMarker_Plus,      // a plus marker (not fillable)
-		ImPlotMarker_Asterisk,  // a asterisk marker (not fillable)
-		ImPlotMarker_COUNT
-	};
+	ImPlotMarker_None =  0, // no marker
+	ImPlotMarker_Circle,	// a circle marker
+	ImPlotMarker_Square,    // a square maker
+	ImPlotMarker_Diamond,   // a diamond marker
+	ImPlotMarker_Up,        // an upward-pointing triangle marker
+	ImPlotMarker_Down,      // an downward-pointing triangle marker
+	ImPlotMarker_Left,      // an leftward-pointing triangle marker
+	ImPlotMarker_Right,     // an rightward-pointing triangle marker
+	ImPlotMarker_Cross,     // a cross marker (not fillable)
+	ImPlotMarker_Plus,      // a plus marker (not fillable)
+	ImPlotMarker_Asterisk,  // a asterisk marker (not fillable)
+	ImPlotMarker_COUNT
+};
+
+static int32 ToInt32(EImPlotMarker E)
+{
+	return static_cast<int32>(E)-1;
 }
 
-
 UENUM(BlueprintType)
-enum class EImPlotColormap : uint8
+namespace EImPlotColormap
 {
-	ImPlotColormap_Deep = 0,   // a.k.a. seaborn deep             (qual=true,  n=10) (default)
-	ImPlotColormap_Dark = 1,   // a.k.a. matplotlib "Set1"        (qual=true,  n=9 )
-	ImPlotColormap_Pastel = 2,   // a.k.a. matplotlib "Pastel1"     (qual=true,  n=9 )
-	ImPlotColormap_Paired = 3,   // a.k.a. matplotlib "Paired"      (qual=true,  n=12)
-	ImPlotColormap_Viridis = 4,   // a.k.a. matplotlib "viridis"     (qual=false, n=11)
-	ImPlotColormap_Plasma = 5,   // a.k.a. matplotlib "plasma"      (qual=false, n=11)
-	ImPlotColormap_Hot = 6,   // a.k.a. matplotlib/MATLAB "hot"  (qual=false, n=11)
-	ImPlotColormap_Cool = 7,   // a.k.a. matplotlib/MATLAB "cool" (qual=false, n=11)
-	ImPlotColormap_Pink = 8,   // a.k.a. matplotlib/MATLAB "pink" (qual=false, n=11)
-	ImPlotColormap_Jet = 9,   // a.k.a. MATLAB "jet"             (qual=false, n=11)
-	ImPlotColormap_Twilight = 10,  // a.k.a. matplotlib "twilight"    (qual=false, n=11)
-	ImPlotColormap_RdBu = 11,  // red/blue, Color Brewer          (qual=false, n=11)
-	ImPlotColormap_BrBG = 12,  // brown/blue-green, Color Brewer  (qual=false, n=11)
-	ImPlotColormap_PiYG = 13,  // pink/yellow-green, Color Brewer (qual=false, n=11)
-	ImPlotColormap_Spectral = 14,  // color spectrum, Color Brewer    (qual=false, n=11)
-	ImPlotColormap_Greys = 15,  // white/black                     (qual=false, n=2 )
-};
+	enum Type {
+		ImPlotColormap_Deep = 0,   // a.k.a. seaborn deep             (qual=true,  n=10) (default)
+		ImPlotColormap_Dark = 1,   // a.k.a. matplotlib "Set1"        (qual=true,  n=9 )
+		ImPlotColormap_Pastel = 2,   // a.k.a. matplotlib "Pastel1"     (qual=true,  n=9 )
+		ImPlotColormap_Paired = 3,   // a.k.a. matplotlib "Paired"      (qual=true,  n=12)
+		ImPlotColormap_Viridis = 4,   // a.k.a. matplotlib "viridis"     (qual=false, n=11)
+		ImPlotColormap_Plasma = 5,   // a.k.a. matplotlib "plasma"      (qual=false, n=11)
+		ImPlotColormap_Hot = 6,   // a.k.a. matplotlib/MATLAB "hot"  (qual=false, n=11)
+		ImPlotColormap_Cool = 7,   // a.k.a. matplotlib/MATLAB "cool" (qual=false, n=11)
+		ImPlotColormap_Pink = 8,   // a.k.a. matplotlib/MATLAB "pink" (qual=false, n=11)
+		ImPlotColormap_Jet = 9,   // a.k.a. MATLAB "jet"             (qual=false, n=11)
+		ImPlotColormap_Twilight = 10,  // a.k.a. matplotlib "twilight"    (qual=false, n=11)
+		ImPlotColormap_RdBu = 11,  // red/blue, Color Brewer          (qual=false, n=11)
+		ImPlotColormap_BrBG = 12,  // brown/blue-green, Color Brewer  (qual=false, n=11)
+		ImPlotColormap_PiYG = 13,  // pink/yellow-green, Color Brewer (qual=false, n=11)
+		ImPlotColormap_Spectral = 14,  // color spectrum, Color Brewer    (qual=false, n=11)
+		ImPlotColormap_Greys = 15,  // white/black                     (qual=false, n=2 )
+	};
+}
 
 
 UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
@@ -194,28 +210,33 @@ enum class EImPlotYAxis : uint8
 {
     ImPlotYAxis_1 = 0, // left (default)
     ImPlotYAxis_2 = 1, // first on right side
-    ImPlotYAxis_3 = 2  // second on right side
+    ImPlotYAxis_3 = 3,  // second on right side
+
+	ImPlotYAxis_Auto // -1
 };
 
+static inline int32 ToInt32(EImPlotYAxis& axis)
+{
+	return axis == EImPlotYAxis::ImPlotYAxis_Auto ? -1 : static_cast<int>(axis);
+}
 
 // Enums for different automatic histogram binning methods (k = bin count or w = bin width)
 UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
 namespace EImPlotBin
 {
 	enum Type {
-		UE4_ERROR         =  0, //does not have a 0 entry! (This is a problem when the enum is initalized by default)
-		ImPlotBin_Sqrt    = -1, // k = sqrt(n)
-		ImPlotBin_Sturges = -2, // k = 1 + log2(n)
-		ImPlotBin_Rice    = -3, // k = 2 * cbrt(n)
-		ImPlotBin_Scott   = -4, // w = 3.49 * sigma / cbrt(n)
+		ImPlotBin_Default =   0, // does not have a 0 entry! (This is a problem when the enum is initialized by default)
+		ImPlotBin_Sqrt    =  -1, // k = sqrt(n)
+		ImPlotBin_Sturges =  -2, // k = 1 + log2(n)
+		ImPlotBin_Rice    =  -3, // k = 2 * cbrt(n)
+		ImPlotBin_Scott   =  -4, // w = 3.49 * sigma / cbrt(n)
 	};
 }
 
-
-// UPROPERTY(Category = "Input", EditAnywhere, BlueprintReadWrite, Meta = (Bitmask, BitmaskEnum = "EImPlotFlags"))
-// int32 PlayerInputFlags = -1;
-// bool GetPlayerInputFlag(const TEnumAsByte<EImPlotFlags::Type> InFlag)
-
+static int32 ToInt32(TEnumAsByte<EImPlotBin::Type> E)
+{
+	return static_cast<int32>(E);
+}
 
 USTRUCT(BlueprintType)
 struct FImPlotPoint
@@ -285,8 +306,552 @@ struct FImPlotLimits
 
 	bool Contains(const ImPlotPoint& p) const { return Contains(p.x, p.y); }
 	bool Contains(double x, double y) const   { return X.Contains(x) && Y.Contains(y); }
+
+	operator ImPlotLimits() const
+	{
+		return ImPlotLimits(this->X.Min, this->X.Max, this->Y.Min, this->Y.Max);
+	}
 };
 
+USTRUCT(BlueprintType)
+struct FNormalDistribution
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 count = 10000;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TArray<float> Data;
+};
+
+
+// utility structure for realtime plot
+USTRUCT(BlueprintType)
+struct FScrollingBuffer
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int MaxSize;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int Offset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<float> DataX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<float> DataY;
+	
+	void Initialized(int max_size = 2000) {
+		check(DataX.Num() == 0)
+		MaxSize = max_size;
+		Offset  = 0;
+		DataX.Empty(MaxSize);
+		DataY.Empty(MaxSize);
+	}
+	void AddPoint(float x, float y) {
+		if (DataX.Num() < MaxSize)
+		{
+			DataX.Add(x);
+			DataY.Add(y);
+		}
+		else {
+			DataX[Offset] = x;
+			DataY[Offset] = y;
+			Offset =  (Offset + 1) % MaxSize;
+		}
+	}
+	void Erase() {
+		if (DataX.Num() > 0) {
+			DataX.Reset(0);
+			DataY.Reset(0);
+			Offset  = 0;
+		}
+	}
+};
+
+/*
+* 
+*/
+UCLASS()
+class IMGUI_API UScrollingBufferFunction : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ScrollingBuffer")
+	static void MakeScrollingBuffer(UPARAM(ref) FScrollingBuffer& buffer, int32 MaxSize = 2000)
+	{
+		buffer.Initialized(MaxSize);
+	}
+
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ScrollingBuffer")
+	static void AddPoint(UPARAM(ref) FScrollingBuffer& buffer, float x, float y)
+	{
+		buffer.AddPoint(x, y);
+	}
+
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ScrollingBuffer")
+	static void Erase(UPARAM(ref) FScrollingBuffer& buffer)
+	{
+		buffer.Erase();
+	}
+};
+
+
+// utility structure for realtime plot
+USTRUCT(BlueprintType)
+struct FRollingBuffer
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float Span;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<float> DataX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<float> DataY;
+	
+	void Initialized(float InSpan = 10.0f, int32 size = 2000) {
+		check(DataX.Num() == 0)
+		Span = InSpan;
+		DataX.Empty(size);
+		DataY.Empty(size);
+	}
+	void AddPoint(float x, float y) {
+		float xmod = fmodf(x, Span);
+		if (DataX.Num() > 0 && xmod < DataX[DataX.Num()-1])
+		{
+			DataX.Reset(0);
+			DataY.Reset(0);
+		}
+			
+		DataX.Add(xmod);
+		DataY.Add(y);
+	}
+};
+
+/*
+* 
+*/
+UCLASS()
+class IMGUI_API URollingBufferFunction : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, Category="ImPlot|RollingBuffer")
+	static void MakeRollingBuffer(UPARAM(ref) FRollingBuffer& buffer, float InSpan = 10.0f, int32 MaxSize = 2000)
+	{
+		buffer.Initialized(InSpan, MaxSize);
+	}
+	
+	UFUNCTION(BlueprintCallable, Category="ImPlot|RollingBuffer")
+	static void AddPoint(UPARAM(ref) FRollingBuffer& buffer, float x, float y)
+	{
+		buffer.AddPoint(x, y);
+	}
+};
+
+// Huge data used by Time Formatting example (~500 MB allocation!)
+USTRUCT(BlueprintType)
+struct FHugeTimeData
+{
+	GENERATED_USTRUCT_BODY()
+
+	//60*60*24*366
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int Size = 31622400;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<float> Ts;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<float> Ys;
+
+	bool init = false;
+	
+	void Initialized(double min) {		
+		Ts.SetNumZeroed(Size);
+		Ys.SetNumZeroed(Size);
+		for (int i = 0; i < Size; ++i) {
+			Ts[i] = min + i;
+			Ys[i] = GetY(Ts[i]);
+		}
+	}
+	static double GetY(double t) {
+		return 0.5 + 0.25 * sin(t/86400/12) +  0.005 * sin(t/3600);
+	}
+};
+
+
+/*
+* 
+*/
+UCLASS()
+class IMGUI_API UHugeTimeDataFunction : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, Category="ImPlot|HugeTimeData")
+	static void MakeHugeTimeData(UPARAM(ref) FHugeTimeData& timeData, float min)
+	{
+		timeData.Initialized(min);
+	}
+};
+
+
+/*
+ * 
+ */
+USTRUCT(BlueprintType)
+struct FImPlotStylePointer
+{
+	GENERATED_BODY()
+
+	ImPlotStyle* style;
+};
+
+
+/*
+* 
+*/
+UCLASS()
+class IMGUI_API UImPlotStyleFunction : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+    // = 1,      item line weight in pixels
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetLineWeight(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->LineWeight;	}
+
+	// = 1,      item line weight in pixels
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetLineWeight(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->LineWeight = NewValue;	}
+	
+    // = ImPlotMarker_None, marker specification
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetMarker(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->Marker;	}
+
+	// = ImPlotMarker_None, marker specification
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetMarker(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->Marker = NewValue;	}
+	
+    // = 4,      marker size in pixels (roughly the marker's "radius")
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetMarkerSize(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->MarkerSize;	}
+
+	// = 4,      marker size in pixels (roughly the marker's "radius")
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetMarkerSize(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->MarkerSize = NewValue;	}
+	
+    // = 1,      outline weight of markers in pixels
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetMarkerWeight(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->MarkerWeight;	}
+
+	// = 1,      outline weight of markers in pixels
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetMarkerWeight(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->MarkerWeight = NewValue;	}
+	
+    // = 1,      alpha modifier applied to plot fills
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetFillAlpha(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->FillAlpha;	}
+
+	// = 1,      alpha modifier applied to plot fills
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetFillAlpha(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->FillAlpha = NewValue;	}
+	
+    // = 5,      error bar whisker width in pixels
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetErrorBarSize(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->ErrorBarSize;	}
+
+	// = 5,      error bar whisker width in pixels
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetErrorBarSize(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->ErrorBarSize = NewValue;	}
+	
+	// = 1.5,    error bar whisker weight in pixels 
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetErrorBarWeight(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->ErrorBarWeight;	}
+
+	// = 1.5,    error bar whisker weight in pixels 
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetErrorBarWeight(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->ErrorBarWeight = NewValue;	}
+	
+    // = 8,      digital channels bit height (at y = 1.0f) in pixels
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetDigitalBitHeight(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->DigitalBitHeight;	}
+
+	// = 8,      digital channels bit height (at y = 1.0f) in pixels
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetDigitalBitHeight(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->DigitalBitHeight = NewValue;	}
+	
+	// = 4,      digital channels bit padding gap in pixels
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|item")
+	static void GetDigitalBitGap(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->DigitalBitGap;	}
+
+	// = 4,      digital channels bit padding gap in pixels
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|item")
+	static void SetDigitalBitGap(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->DigitalBitGap = NewValue;	}
+	
+    // = 1,      line thickness of border around plot area
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetPlotBorderSize(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->PlotBorderSize;	}
+
+	// = 1,      line thickness of border around plot area
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetPlotBorderSize(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->PlotBorderSize = NewValue;	}
+	
+	// = 0.25    alpha multiplier applied to minor axis grid lines
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetMinorAlpha(UPARAM(ref) FImPlotStylePointer& Style, float& OutValue)
+	{	OutValue = Style.style->MinorAlpha;	}
+
+	// = 0.25    alpha multiplier applied to minor axis grid lines
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetMinorAlpha(UPARAM(ref) FImPlotStylePointer& Style, float& NewValue)
+	{	Style.style->MinorAlpha = NewValue;	}
+	
+	// = 10,10   major tick lengths for X and Y axes
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetMajorTickLen(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSize)
+	{	OutSize = reinterpret_cast<FVector2D&>(Style.style->MajorTickLen);	}
+
+	// = 10,10   major tick lengths for X and Y axes
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetMajorTickLen(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& NewSize)
+	{	Style.style->MajorTickLen = ToImVec2(NewSize);	}
+	
+    // = 5,5     minor tick lengths for X and Y axes
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetMinorTickLen(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSize)
+	{	OutSize = reinterpret_cast<FVector2D&>(Style.style->MinorTickLen);	}
+
+	// = 5,5     minor tick lengths for X and Y axes
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetMinorTickLen(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& NewSize)
+	{	Style.style->MinorTickLen = ToImVec2(NewSize);	}
+	
+    // = 1,1     line thickness of major ticks
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetMajorTickSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSize)
+	{	OutSize = reinterpret_cast<FVector2D&>(Style.style->MajorTickSize);	}
+
+	// = 1,1     line thickness of major ticks
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetMajorTickSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& NewSize)
+	{	Style.style->MajorTickSize = ToImVec2(NewSize);	}
+	
+    // = 1,1     line thickness of minor ticks
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetMinorTickSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSize)
+	{	OutSize = reinterpret_cast<FVector2D&>(Style.style->MinorTickSize);	}
+
+	// = 1,1     line thickness of minor ticks
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetMinorTickSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& NewSize)
+	{	Style.style->MinorTickSize = ToImVec2(NewSize);	}
+	
+    // = 1,1     line thickness of major grid lines
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetMajorGridSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSize)
+	{	OutSize = reinterpret_cast<FVector2D&>(Style.style->MajorGridSize);	}
+	
+	// = 1,1     line thickness of major grid lines
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetMajorGridSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& NewSize)
+	{	Style.style->MajorGridSize = ToImVec2(NewSize);	}
+	
+    // = 1,1     line thickness of minor grid lines
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetMinorGridSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSize)
+	{	OutSize = reinterpret_cast<FVector2D&>(Style.style->MinorGridSize);	}
+
+	// = 1,1     line thickness of minor grid lines
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetMinorGridSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& NewSize)
+	{	Style.style->MinorGridSize = ToImVec2(NewSize);	}
+	
+    // = 10,10   padding between widget frame and plot area, labels, or outside legends (i.e. main padding)
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetPlotPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutPadding)
+	{	OutPadding = reinterpret_cast<FVector2D&>(Style.style->PlotPadding);	}
+
+	// = 10,10   padding between widget frame and plot area, labels, or outside legends (i.e. main padding)
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetPlotPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewPadding)
+	{	Style.style->PlotPadding = ToImVec2(NewPadding);	}
+	
+    // = 5,5     padding between axes labels, tick labels, and plot edge
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetLabelPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutPadding)
+	{	OutPadding = reinterpret_cast<FVector2D&>(Style.style->LabelPadding);	}
+
+	// = 5,5     padding between axes labels, tick labels, and plot edge
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetLabelPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewPadding)
+	{	Style.style->LabelPadding = ToImVec2(NewPadding);	}
+	
+    // = 10,10   legend padding from plot edges
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetLegendPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutPadding)
+	{	OutPadding = reinterpret_cast<FVector2D&>(Style.style->LegendPadding);	}
+
+	// = 10,10   legend padding from plot edges
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetLegendPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewPadding)
+	{	Style.style->LegendPadding = ToImVec2(NewPadding);	}
+	
+    // = 5,5     legend inner padding from legend edges
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetLegendInnerPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutPadding)
+	{	OutPadding = reinterpret_cast<FVector2D&>(Style.style->LegendInnerPadding);	}
+
+	// = 5,5     legend inner padding from legend edges
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetLegendInnerPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewPadding)
+	{	Style.style->LegendInnerPadding = ToImVec2(NewPadding);	}
+	
+    // = 5,0     spacing between legend entries
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetLegendSpacing(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSpacing)
+	{	OutSpacing = reinterpret_cast<FVector2D&>(Style.style->LegendSpacing);	}
+
+	// = 5,0     spacing between legend entries
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetLegendSpacing(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewSpacing)
+	{	Style.style->LegendSpacing = ToImVec2(NewSpacing);	}
+	
+    // = 10,10   padding between plot edge and interior mouse location text
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle")
+	static void GetMousePosPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutPadding)
+	{	OutPadding = reinterpret_cast<FVector2D&>(Style.style->MousePosPadding);	}
+
+	// = 10,10   padding between plot edge and interior mouse location text
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle")
+	static void SetMousePosPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewPadding)
+	{	Style.style->MousePosPadding = ToImVec2(NewPadding);	}
+	
+    // = 2,2     text padding around annotation labels
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetAnnotationPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutPadding)
+	{	OutPadding = reinterpret_cast<FVector2D&>(Style.style->AnnotationPadding);	}
+
+	// = 2,2     text padding around annotation labels
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetAnnotationPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewPadding)
+	{	Style.style->AnnotationPadding = ToImVec2(NewPadding);	}
+	
+    // = 0,0     additional fit padding as a percentage of the fit extents (e.g. ImVec2(0.1f,0.1f) adds 10% to the fit extents of X and Y)
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetFitPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutPadding)
+	{	OutPadding = reinterpret_cast<FVector2D&>(Style.style->FitPadding);	}
+
+	// = 0,0     additional fit padding as a percentage of the fit extents (e.g. ImVec2(0.1f,0.1f) adds 10% to the fit extents of X and Y)
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetFitPadding(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewPadding)
+	{	Style.style->FitPadding = ToImVec2(NewPadding);	}
+	
+    // = 400,300 default size used when ImVec2(0,0) is passed to BeginPlot
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetPlotDefaultSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSize)
+	{	OutSize = reinterpret_cast<FVector2D&>(Style.style->PlotDefaultSize);	}
+
+	// = 400,300 default size used when ImVec2(0,0) is passed to BeginPlot
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetPlotDefaultSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewSize)
+	{	Style.style->PlotDefaultSize = ToImVec2(NewSize);	}
+	
+	// = 300,225 minimum size plot frame can be when shrunk
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|plot")
+	static void GetPlotMinSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D& OutSize)
+	{	OutSize = reinterpret_cast<FVector2D&>(Style.style->PlotMinSize);	}
+
+	// = 300,225 minimum size plot frame can be when shrunk
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|plot")
+	static void SetPlotMinSize(UPARAM(ref) FImPlotStylePointer& Style, FVector2D NewSize)
+	{	Style.style->PlotMinSize = ToImVec2(NewSize);	}
+	
+    // Array of styling colors. Indexable with EImPlotCol enums.
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|colors")
+	static void GetColors(UPARAM(ref) FImPlotStylePointer& Style, EImPlotCol col, FLinearColor& OutColor)
+	{	OutColor = reinterpret_cast<FLinearColor&>(Style.style->Colors[static_cast<uint8>(col)]);	}
+
+	// Array of styling colors. Indexable with EImPlotCol enums.
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|colors")
+	static void SetColors(UPARAM(ref) FImPlotStylePointer& Style, EImPlotCol col, FLinearColor NewColor)
+	{	Style.style->Colors[static_cast<uint8>(col)] = ToImVec4(NewColor);	}
+	
+	// The current colormap. Set this to either an ImPlotColormap_ enum or an index returned by AddColormap.
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|colormap")
+	static void GetColormap(UPARAM(ref) FImPlotStylePointer& Style, int32& OutValue) { OutValue = Style.style->Colormap; }
+
+	// The current colormap. Set this to either an ImPlotColormap_ enum or an index returned by AddColormap.
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|colormap")
+	static void SetColormap(UPARAM(ref) FImPlotStylePointer& Style, int32 NewValue) { Style.style->Colormap = NewValue; }
+	
+	// = false,  enable global anti-aliasing on plot lines (overrides ImPlotFlags_AntiAliased)
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|settings/flags")
+	static void GetAntiAliasedLines(UPARAM(ref) FImPlotStylePointer& Style, bool& OutBoolean) { OutBoolean = Style.style->AntiAliasedLines; }
+
+	// = false,  enable global anti-aliasing on plot lines (overrides ImPlotFlags_AntiAliased)
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|settings/flags")
+	static void SetAntiAliasedLines(UPARAM(ref) FImPlotStylePointer& Style, bool NewEnable) { Style.style->AntiAliasedLines = NewEnable; }
+	
+	// = false,  axis labels will be formatted for your timezone when ImPlotAxisFlag_Time is enabled
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|settings/flags")
+	static void GetUseLocalTime(UPARAM(ref) FImPlotStylePointer& Style, bool& OutBoolean) { OutBoolean = Style.style->UseLocalTime; }
+
+	// = false,  axis labels will be formatted for your timezone when ImPlotAxisFlag_Time is enabled
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|settings/flags")
+	static void SetUseLocalTime(UPARAM(ref) FImPlotStylePointer& Style, bool NewEnable) { Style.style->UseLocalTime = NewEnable; }
+	
+	// = false,  dates will be formatted according to ISO 8601 where applicable (e.g. YYYY-MM-DD, YYYY-MM, --MM-DD, etc.)
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|settings/flags")
+	static void GetUseISO8601(UPARAM(ref) FImPlotStylePointer& Style, bool& OutBoolean) { OutBoolean = Style.style->UseISO8601; }
+
+	// = false,  dates will be formatted according to ISO 8601 where applicable (e.g. YYYY-MM-DD, YYYY-MM, --MM-DD, etc.)
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|settings/flags")
+	static void SetUseISO8601(UPARAM(ref) FImPlotStylePointer& Style, bool NewEnable) { Style.style->UseISO8601 = NewEnable; }
+	
+	// = false,  times will be formatted using a 24 hour clock
+	UFUNCTION(BlueprintPure, Category="ImPlot|ImPlotStyle|settings/flags")
+	static void GetUse24HourClock(UPARAM(ref) FImPlotStylePointer& Style, bool& OutRef) { OutRef = Style.style->Use24HourClock; }
+
+	// = false,  times will be formatted using a 24 hour clock
+	UFUNCTION(BlueprintCallable, Category="ImPlot|ImPlotStyle|settings/flags")
+	static void SetUse24HourClock(UPARAM(ref) FImPlotStylePointer& Style, bool NewEnable) { Style.style->Use24HourClock = NewEnable; }
+};
+
+
+/*
+ * 
+ */
 UCLASS()
 class IMGUI_API UImplotFunction : public UBlueprintFunctionLibrary
 {
@@ -294,14 +859,24 @@ class IMGUI_API UImplotFunction : public UBlueprintFunctionLibrary
 
 
 public:
+
+	UFUNCTION(BlueprintCallable, Category = "ImPlot|Example", Meta = (ReturnDisplayName = "Point"))	
+	static void MakeNormalDistribution(UPARAM(ref) FNormalDistribution& distribution, float mean = 5, float sd = 2);
+	
 	/*Blueprint Function to return the value of ExampleProperty from the struct*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "ImPlot", Meta = (ReturnDisplayName = "Point"))	
 	static FVector2D GetImPlotPoint(UPARAM(ref) FImPlotPoint& Point) { return FVector2D(Point.p.x, Point.p.y); }
 
 	UFUNCTION(BlueprintCallable, Category = "ImPlot")
 	static void SetImPlotPoint(UPARAM(ref) FImPlotPoint& Point, FVector2D NewPoint) {  Point.SetPoint(NewPoint); }
-	
+
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToInt (ImPlotMarker)", CompactNodeTitle = "->", Keywords="cast convert", BlueprintAutocast), Category="ImPlot")
+	static int32 Conv_ImPlotMarkerToInt(EImPlotMarker ImPlotBin);
+
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToInt (ImPlotFlags)", CompactNodeTitle = "->", Keywords="cast convert", BlueprintAutocast), Category="ImPlot")
+	static int32 Conv_ImPlotFlagsToInt(TEnumAsByte<EImPlotFlags::Type> ImPlotFlags);
 };
+
 
 /**
  * 
@@ -326,16 +901,21 @@ public:
 	// be unique. If you need to avoid ID collisions or don't want to display a
 	// title in the plot, use double hashes (e.g. "MyPlot##Hidden" or "##NoTitle").
 	// If #x_label and/or #y_label are provided, axes labels will be displayed.
-	UFUNCTION(BlueprintCallable, Category = "Implot", meta=(AdvancedDisplay = "1", ExpandEnumAsExecs="OutResult"))
+	UFUNCTION(BlueprintCallable, Category = "Implot", meta = (AdvancedDisplay = "1", ExpandEnumAsExecs="OutResult"))
 	static void BeginPlot(const FString& title_id, TEnumAsByte<EImGuiFlowControl::Type>& OutResult,
 	                          FString x_label      = TEXT(""),
 	                          FString y_label      = TEXT(""),
 	                          FVector2D size       = FVector2D(-1,0),
+	                          UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotFlags))
 	                          int32 flags	 = 0,
+	                          UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotAxisFlags))
 	                          int32 x_flags  = 0,
+	                          UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotAxisFlags))
 	                          int32 y_flags  = 0,
-	                          int32 y2_flags = 2,
-	                          int32 y3_flags = 2,
+	                          UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotAxisFlags))
+	                          int32 y2_flags = 2, //ImPlotAxisFlags_NoGridLines
+	                          UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotAxisFlags))
+	                          int32 y3_flags = 2, //ImPlotAxisFlags_NoGridLines
 	                          FString y2_label      = TEXT(""),
 	                          FString y3_label      = TEXT(""))
 	{
@@ -365,208 +945,242 @@ public:
 	// PlotLine
 
 	// Plots a standard 2D line plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta=(AdvancedDisplay = "2"))
-	static void PlotLineIntA(const FString& label_id, const TArray<int32>& values, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2", DisplayName = "Plotine int array 1"))
+	static void PlotLineIntA(const FString& label_id, const TArray<int32>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
-		ImPlot::PlotLine(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), xscale, x0, offset, sizeof(int32));
+		ImPlot::PlotLine(TCHAR_TO_ANSI(*label_id), values.GetData(), count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(int32));
 	}
 
 	// Plots a standard 2D line plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta=(AdvancedDisplay = "3"))
-	static void PlotLineIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "Plotine int array 2"))
+	static void PlotLineIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, int32 count = -1, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
-		ImPlot::PlotLine(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), offset, sizeof(int32));	
+		ImPlot::PlotLine(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), count == -1 ? xs.Num() : count, offset, sizeof(int32));	
 	}
 
 	// Plots a standard 2D line plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta=(AdvancedDisplay = "2"))
-	static void PlotLineFloatA(const FString& label_id, const TArray<float>& values, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2", DisplayName = "Plotine float array 1"))
+	static void PlotLineFloatA(const FString& label_id, const TArray<float>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
-		ImPlot::PlotLine(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), xscale, x0, offset, sizeof(float));
+		ImPlot::PlotLine(TCHAR_TO_ANSI(*label_id), values.GetData(), count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(float));
 	}
 
 	// Plots a standard 2D line plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta=(AdvancedDisplay = "3"))
-	static void PlotLineFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "Plotine float array 2"))
+	static void PlotLineFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, int32 count = -1, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
-		ImPlot::PlotLine(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), offset, sizeof(float));	
+		ImPlot::PlotLine(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), count == -1 ? xs.Num() : count, offset, sizeof(float));	
 	}
 
+	static const FFunctionDelegateFloat* PlotLineGCallback;
+
+	//custom
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotLineG"))//DeprecatedFunction,
+	static void PlotLineG(const FString& label_id, UPARAM(ref) const FFunctionDelegateFloat& getter, int32 count = 1, int32 offset = 0)
+	{
+		auto PlotLineG_Callback = [](void* data, int idx)
+		{ 
+			FVector2D OutPoint = FVector2D::ZeroVector;
+			PlotLineGCallback->Execute(idx, OutPoint);
+			return ImPlotPoint(OutPoint.X, OutPoint.Y);
+		};
+
+		PlotLineGCallback = &getter;
+		ImPlot::PlotLineG(TCHAR_TO_ANSI(*label_id), PlotLineG_Callback, nullptr, count, offset);
+		PlotLineGCallback = nullptr;
+	}
+
+	
 	// PlotScatter
 
 	// Plots a standard 2D scatter plot. Default marker is ImPlotMarker_Circle.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotScatterIntA(const FString& label_id, const TArray<int32>& values, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2", DisplayName = "PlotScatter int array 1"))
+	static void PlotScatterIntA(const FString& label_id, const TArray<int32>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
-		ImPlot::PlotScatter(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), xscale, x0, offset, sizeof(int32));
+		ImPlot::PlotScatter(TCHAR_TO_ANSI(*label_id), values.GetData(), count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(int32));
 	}
 
 	// Plots a standard 2D scatter plot. Default marker is ImPlotMarker_Circle.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotScatterIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotScatter int array 2"))
+	static void PlotScatterIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, int32 count = -1, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
-		ImPlot::PlotScatter(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), offset, sizeof(int32));	
+		ImPlot::PlotScatter(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), count == -1 ? xs.Num() : count, offset, sizeof(int32));	
 	}
 
 	// Plots a standard 2D scatter plot. Default marker is ImPlotMarker_Circle.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotScatterFloatA(const FString& label_id, const TArray<float>& values, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2", DisplayName = "PlotScatter float array 1"))
+	static void PlotScatterFloatA(const FString& label_id, const TArray<float>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
-		ImPlot::PlotScatter(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), xscale, x0, offset, sizeof(float));
+		ImPlot::PlotScatter(TCHAR_TO_ANSI(*label_id), values.GetData(), count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(float));
 	}
 	
 	// Plots a standard 2D scatter plot. Default marker is ImPlotMarker_Circle.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotScatterFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotScatter float array 2"))
+	static void PlotScatterFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, int32 count = -1, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
-		ImPlot::PlotScatter(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), offset, sizeof(float));	
+		ImPlot::PlotScatter(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), count == -1 ? xs.Num() : count, offset, sizeof(float));	
 	}
 
+	
 	// PlotStairs
 
 	// Plots a a stairstep graph. The y value is continued constantly from every x position, i.e. the interval [x[i], x[i+1]) has the value y[i].
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = 2))
-	static void PlotStairsIntA(const FString& label_id, const TArray<int32>& values, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2", DisplayName = "PlotStairs int array 1"))
+	static void PlotStairsIntA(const FString& label_id, const TArray<int32>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
-		ImPlot::PlotStairs(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), xscale, x0, offset, sizeof(int32));
+		ImPlot::PlotStairs(TCHAR_TO_ANSI(*label_id), values.GetData(), count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(int32));
 	}
 
 	// Plots a a stairstep graph. The y value is continued constantly from every x position, i.e. the interval [x[i], x[i+1]) has the value y[i].
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = 3))
-	static void PlotStairsIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotStairs int array 2"))
+	static void PlotStairsIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotStairs(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), offset, sizeof(int32));	
 	}
 
 	// Plots a a stairstep graph. The y value is continued constantly from every x position, i.e. the interval [x[i], x[i+1]) has the value y[i].
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = 2))
-	static void PlotStairsFloatA(const FString& label_id, const TArray<float>& values, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2", DisplayName = "PlotStairs (float 1)"))
+	static void PlotStairsFloatA(const FString& label_id, const TArray<float>& values, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
 		ImPlot::PlotStairs(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), xscale, x0, offset, sizeof(float));
 	}
 
 	// Plots a a stairstep graph. The y value is continued constantly from every x position, i.e. the interval [x[i], x[i+1]) has the value y[i].
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = 3))
-	static void PlotStairsFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotStairs (float 2)"))
+	static void PlotStairsFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotStairs(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), offset, sizeof(float));	
 	}
 
 	// PlotShaded
 
 	// Plots a shaded (filled) region between two lines, or a line and a horizontal reference. Set y_ref to +/-INFINITY for infinite fill extents.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = 2))
-	static void PlotShadedIntA(const FString& label_id, const TArray<int32>& values, float y_ref = 0, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotShadedIntA(const FString& label_id, const TArray<int32>& values, float y_ref = 0, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
 		ImPlot::PlotShaded(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), y_ref, xscale, x0, offset, sizeof(int32));
 	}
 
 	// Plots a shaded (filled) region between two lines, or a line and a horizontal reference. Set y_ref to +/-INFINITY for infinite fill extents.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = 3))
-	static void PlotShadedIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, float y_ref = 0, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3"))
+	static void PlotShadedIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, float y_ref = 0, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotShaded(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), y_ref, offset, sizeof(int32));	
 	}
 
 	// Plots a shaded (filled) region between two lines, or a line and a horizontal reference. Set y_ref to +/-INFINITY for infinite fill extents.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = 4))
-	static void PlotShadedIntC(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys1, const TArray<int32>& ys2, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4"))
+	static void PlotShadedIntC(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys1, const TArray<int32>& ys2, int32 offset = 0)
 	{
-		check(xs.Num() == ys1.Num() && xs.Num() == ys2.Num());
 		ImPlot::PlotShaded(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys1.GetData(), ys2.GetData(), xs.Num(), offset, sizeof(int32));	
 	}
 
 	// Plots a shaded (filled) region between two lines, or a line and a horizontal reference. Set y_ref to +/-INFINITY for infinite fill extents.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = 2))
-	static void PlotShadedFloatA(const FString& label_id, const TArray<float>& values, float y_ref = 0, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotShadedFloatA(const FString& label_id, const TArray<float>& values, float y_ref = 0, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
 		ImPlot::PlotShaded(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), y_ref, xscale, x0, offset, sizeof(float));
 	}
 
 	// Plots a shaded (filled) region between two lines, or a line and a horizontal reference. Set y_ref to +/-INFINITY for infinite fill extents.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta=(AdvancedDisplay = "4"))
-	static void PlotShadedFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, float y_ref = 0, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4"))
+	static void PlotShadedFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, float y_ref = 0, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotShaded(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), y_ref, offset, sizeof(float));	
 	}
 
 	// Plots a shaded (filled) region between two lines, or a line and a horizontal reference. Set y_ref to +/-INFINITY for infinite fill extents.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta=(AdvancedDisplay = "4"))
-	static void PlotShadedFloatC(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys1, const TArray<float>& ys2, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4"))
+	static void PlotShadedFloatC(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys1, const TArray<float>& ys2, int32 offset = 0)
 	{
-		check(xs.Num() == ys1.Num() && xs.Num() == ys2.Num());
 		ImPlot::PlotShaded(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys1.GetData(), ys2.GetData(), xs.Num(), offset, sizeof(float));	
+	}
+
+	static const FFunctionDelegateFloat* PlotShadedCallback1;
+	static const FFunctionDelegateFloat* PlotShadedCallback2;
+
+	//custom
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotLineG"))//DeprecatedFunction,
+	static void PlotShadedG(const FString& label_id, UPARAM(ref) const FFunctionDelegateFloat& getter1, UPARAM(ref) const FFunctionDelegateFloat& getter2, int32 count = 1, int32 offset = 0)
+	{
+		auto PlotShadedG_Callback1 = [](void* data, int idx)
+		{
+			FVector2D OutPoint = FVector2D::ZeroVector;
+			PlotShadedCallback1->Execute(idx, OutPoint);
+			return ImPlotPoint(OutPoint.X, OutPoint.Y);
+		};
+
+		auto PlotShadedG_Callback2 = [](void* data, int idx)
+		{
+			FVector2D OutPoint = FVector2D::ZeroVector;
+			PlotShadedCallback2->Execute(idx, OutPoint);
+			return ImPlotPoint(OutPoint.X, OutPoint.Y);
+		};
+
+		PlotShadedCallback1 = &getter1;
+		PlotShadedCallback2 = &getter2;
+		ImPlot::PlotShadedG(TCHAR_TO_ANSI(*label_id), PlotShadedG_Callback1, nullptr, PlotShadedG_Callback2, nullptr, count, offset);
+		PlotShadedCallback1 = nullptr;
+		PlotShadedCallback2 = nullptr;
 	}
 	
 	// PlotBars
 
 	// Plots a vertical bar graph. #width and #shift are in X units.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotBarsIntA(const FString& label_id, const TArray<int32>& values, float width = 0.67f, float shift = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotBarsIntA(const FString& label_id, const TArray<int32>& values, float width = 0.67f, float shift = 0.0f, int32 offset = 0)
 	{
 		ImPlot::PlotBars(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), width, shift, offset, sizeof(int32));
 	}
 
 	// Plots a vertical bar graph. #width and #shift are in X units.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotBarsIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, float width, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3"))
+	static void PlotBarsIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, float width, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotBars(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), width, offset, sizeof(int32));
 	}
 
 	// Plots a vertical bar graph. #width and #shift are in X units.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotBarsFloatA(const FString& label_id, const TArray<float>& values, float width = 0.67f, float shift = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotBarsFloatA(const FString& label_id, const TArray<float>& values, float width = 0.67f, float shift = 0.0f, int32 offset = 0)
 	{
 		ImPlot::PlotBars(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), width, shift, offset, sizeof(float));
 	}
 
 	// Plots a vertical bar graph. #width and #shift are in X units.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotBarsFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, float width, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3"))
+	static void PlotBarsFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, float width, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotBars(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), width, offset, sizeof(float));	
 	}
 
 	// PlotBarsH
 
 	// Plots a horizontal bar graph. #height and #shift are in Y units.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotBarsH_IntA(const FString& label_id, const TArray<int32>& values, float height = 0.67f, float shift = 0.f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotBarsH_IntA(const FString& label_id, const TArray<int32>& values, float height = 0.67f, float shift = 0.f, int32 offset = 0)
 	{
 		ImPlot::PlotBarsH(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), height, shift, offset, sizeof(int32));
 	}
 
 	// Plots a horizontal bar graph. #height and #shift are in Y units.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotBarsH_IntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, float height, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3"))
+	static void PlotBarsH_IntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, float height, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotBarsH(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), height, offset, sizeof(int32));
 	}
 
 	// Plots a horizontal bar graph. #height and #shift are in Y units.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotBarsH_FloatA(const FString& label_id, const TArray<float>& values, float height = 0.67f, float shift = 0.f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotBarsH_FloatA(const FString& label_id, const TArray<float>& values, float height = 0.67f, float shift = 0.f, int32 offset = 0)
 	{
 		ImPlot::PlotBarsH<float>(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), height, shift, offset, sizeof(float));
 	}
 
 	// Plots a horizontal bar graph. #height and #shift are in Y units.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotBarsH_FloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, float height, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3"))
+	static void PlotBarsH_FloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, float height, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotBarsH<float>(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), height, offset, sizeof(float));	
 	}
 	
@@ -575,34 +1189,30 @@ public:
 
 
 	// Plots vertical error bar. The label_id should be the same as the label_id of the associated line or bar plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotErrorBarsIntA(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, const TArray<int32>& err, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4"))
+	static void PlotErrorBarsIntA(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, const TArray<int32>& err, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num() && xs.Num() == err.Num());
 		ImPlot::PlotErrorBars<int>(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), err.GetData(), xs.Num(), offset, sizeof(int32));
 	}
 
 	// Plots vertical error bar. The label_id should be the same as the label_id of the associated line or bar plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotErrorBarsIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, const TArray<int32>& neg, const TArray<int32>& pos, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "5"))
+	static void PlotErrorBarsIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, const TArray<int32>& neg, const TArray<int32>& pos, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num() && xs.Num() == neg.Num() && xs.Num() == pos.Num());
 		ImPlot::PlotErrorBars<int>(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), neg.GetData(), ys.GetData(), pos.Num(), offset, sizeof(int32));
 	}
 
 	// Plots vertical error bar. The label_id should be the same as the label_id of the associated line or bar plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotErrorBarsFloatA(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, const TArray<float>& err, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4"))
+	static void PlotErrorBarsFloatA(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, const TArray<float>& err, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num() && xs.Num() == err.Num());
 		ImPlot::PlotErrorBars<float>(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), err.GetData(), xs.Num(), offset, sizeof(float));
 	}
 
 	// Plots vertical error bar. The label_id should be the same as the label_id of the associated line or bar plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotErrorBarsFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, const TArray<float>& neg, const TArray<float>& pos, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "5"))
+	static void PlotErrorBarsFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, const TArray<float>& neg, const TArray<float>& pos, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num() && xs.Num() == neg.Num() && xs.Num() == pos.Num());
 		ImPlot::PlotErrorBars<float>(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), neg.GetData(), pos.GetData(), xs.Num(), offset, sizeof(float));
 	}
 
@@ -611,34 +1221,30 @@ public:
 
 
 	// Plots horizontal error bars. The label_id should be the same as the label_id of the associated line or bar plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotErrorBarsH_IntA(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, const TArray<int32>& err, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4"))
+	static void PlotErrorBarsH_IntA(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, const TArray<int32>& err, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num() && xs.Num() == err.Num());
 		ImPlot::PlotErrorBarsH(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), err.GetData(), xs.Num(), offset, sizeof(int32));
 	}
 
 	// Plots horizontal error bars. The label_id should be the same as the label_id of the associated line or bar plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotErrorBarsH_IntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, const TArray<int32>& neg, const TArray<int32>& pos, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4"))
+	static void PlotErrorBarsH_IntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, const TArray<int32>& neg, const TArray<int32>& pos, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num() && xs.Num() == neg.Num() && xs.Num() == pos.Num());
 		ImPlot::PlotErrorBarsH(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), neg.GetData(), ys.GetData(), pos.Num(), offset, sizeof(int32));
 	}
 
 	// Plots horizontal error bars. The label_id should be the same as the label_id of the associated line or bar plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotErrorBarsH_FloatA(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, const TArray<float>& err, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4"))
+	static void PlotErrorBarsH_FloatA(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, const TArray<float>& err, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num() && xs.Num() == err.Num());
 		ImPlot::PlotErrorBarsH(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), err.GetData(), xs.Num(), offset, sizeof(float));
 	}
 
 	// Plots horizontal error bars. The label_id should be the same as the label_id of the associated line or bar plot.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotErrorBarsH_FloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, const TArray<float>& neg, const TArray<float>& pos, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "5"))
+	static void PlotErrorBarsH_FloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, const TArray<float>& neg, const TArray<float>& pos, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num() && xs.Num() == neg.Num() && xs.Num() == pos.Num());
 		ImPlot::PlotErrorBarsH(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), neg.GetData(), pos.GetData(), xs.Num(), offset, sizeof(float));
 	}
 
@@ -646,32 +1252,30 @@ public:
 	// PlotStems
 
 	// Plots vertical stems.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotStemsIntA(const FString& label_id, const TArray<int32>& values, float y_ref = 0, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotStemsIntA(const FString& label_id, const TArray<int32>& values, float y_ref = 0, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
 		ImPlot::PlotStems(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), y_ref, xscale, x0, offset, sizeof(int32));
 	}
 
 	// Plots vertical stems.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotStemsIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, float y_ref = 0, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3"))
+	static void PlotStemsIntB(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, float y_ref = 0, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotStems(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), y_ref, offset, sizeof(int32));	
 	}
 
 	// Plots vertical stems.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotStemsFloatA(const FString& label_id, const TArray<float>& values, float y_ref = 0, float xscale = 1.0f, float x0 = 0.0f, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotStemsFloatA(const FString& label_id, const TArray<float>& values, float y_ref = 0, float xscale = 1.0f, float x0 = 0.0f, int32 offset = 0)
 	{
 		ImPlot::PlotStems(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), y_ref, xscale, x0, offset, sizeof(float));
 	}
 
 	// Plots vertical stems.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotStemsFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, float y_ref = 0, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3"))
+	static void PlotStemsFloatB(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, float y_ref = 0, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num());
 		ImPlot::PlotStems(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), y_ref, offset, sizeof(float));	
 	}
 
@@ -680,36 +1284,36 @@ public:
 
 	
 	/// Plots infinite vertical or horizontal lines (e.g. for references or asymptotes).
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotVLinesInt(const FString& label_id, const TArray<int32>& xs, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotVLinesInt(const FString& label_id, const TArray<int32>& xs, int32 offset = 0)
 	{
 		ImPlot::PlotVLines(TCHAR_TO_ANSI(*label_id), xs.GetData(), xs.Num(), offset, sizeof(int32));
 	}
 
 	/// Plots infinite vertical or horizontal lines (e.g. for references or asymptotes).
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotVLinesFloat(const FString& label_id, const TArray<float>& xs, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotVLinesFloat(const FString& label_id, const TArray<float>& xs, int32 offset = 0)
 	{
 		ImPlot::PlotVLines(TCHAR_TO_ANSI(*label_id), xs.GetData(), xs.Num(), offset, sizeof(float));
 	}
 
 	/// Plots infinite vertical or horizontal lines (e.g. for references or asymptotes).
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotHLinesInt(const FString& label_id, const TArray<int32>& xs, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotHLinesInt(const FString& label_id, const TArray<int32>& xs, int32 offset = 0)
 	{
 		ImPlot::PlotHLines(TCHAR_TO_ANSI(*label_id), xs.GetData(), xs.Num(), offset, sizeof(int32));
 	}
 
 	/// Plots infinite vertical or horizontal lines (e.g. for references or asymptotes).
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotHLinesFloat(const FString& label_id, const TArray<float>& xs, int offset = 0)
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "2"))
+	static void PlotHLinesFloat(const FString& label_id, const TArray<float>& xs, int32 offset = 0)
 	{
 		ImPlot::PlotHLines(TCHAR_TO_ANSI(*label_id), xs.GetData(), xs.Num(), offset, sizeof(float));
 	}
 
 	
 	// Plots a pie chart. If the sum of values > 1 or normalize is true, each value will be normalized. Center and radius are in plot units. #label_fmt can be set to NULL for no labels.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "6"))
 	static void PlotPieChartInt(const TArray<FString>& label_ids, const TArray<int32>& values, float x, float y, float radius, bool normalize = false, FString label_fmt = TEXT("%.1f"), float angle0 = 90.0f)
 	{
 		ConvertArrayFStringToArrayAnsi labelList(label_ids);
@@ -717,7 +1321,7 @@ public:
 	}
 
 	// Plots a pie chart. If the sum of values > 1 or normalize is true, each value will be normalized. Center and radius are in plot units. #label_fmt can be set to NULL for no labels.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "6"))
 	static void PlotPieChartFloat(const TArray<FString>& label_ids, const TArray<float>& values, float x, float y, float radius, bool normalize = false, FString label_fmt = TEXT("%.1f"), float angle0 = 90.0f)
 	{
 		ConvertArrayFStringToArrayAnsi labelList(label_ids);
@@ -726,14 +1330,14 @@ public:
 	
 	// Plots a 2D heatmap chart. Values are expected to be in row-major order. Leave #scale_min and scale_max both at 0 for automatic color scaling, or set them to a predefined range. #label_fmt can be set to NULL for no labels.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AutoCreateRefTerm = "bounds_min, bounds_max"))
-	static void PlotHeatmapInt(const FString& label_id, const TArray<int32>& values, int rows, int cols, float scale_min = 0.0f, float scale_max = 0, FString label_fmt = TEXT("%.1f"), float bounds_min_x = 0.0f, float bounds_min_y = 0.0f, float bounds_max_x = 0.0f, float bounds_max_y = 0.0f)
+	static void PlotHeatmapInt(const FString& label_id, const TArray<int32>& values, int32 rows, int32 cols, float scale_min = 0.0f, float scale_max = 0, FString label_fmt = TEXT("%.1f"), float bounds_min_x = 0.0f, float bounds_min_y = 0.0f, float bounds_max_x = 0.0f, float bounds_max_y = 0.0f)
 	{
 		ImPlot::PlotHeatmap(TCHAR_TO_ANSI(*label_id), values.GetData(), rows, cols, scale_min, scale_max, TCHAR_TO_ANSI(*label_fmt), ImPlotPoint(bounds_min_x, bounds_min_y), ImPlotPoint(bounds_max_x, bounds_max_y));
 	}
 	
 	// Plots a 2D heatmap chart. Values are expected to be in row-major order. Leave #scale_min and scale_max both at 0 for automatic color scaling, or set them to a predefined range. #label_fmt can be set to NULL for no labels.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AutoCreateRefTerm = "bounds_min, bounds_max"))
-	static void PlotHeatmapFloat(const FString& label_id, const TArray<float>& values, int rows, int cols, float scale_min = 0.0f, float scale_max = 0, FString label_fmt = TEXT("%.1f"), float bounds_min_x = 0.0f, float bounds_min_y = 0.0f, float bounds_max_x = 1.0f, float bounds_max_y = 1.0f)
+	static void PlotHeatmapFloat(const FString& label_id, const TArray<float>& values, int32 rows, int32 cols, float scale_min = 0.0f, float scale_max = 0, FString label_fmt = TEXT("%.1f"), float bounds_min_x = 0.0f, float bounds_min_y = 0.0f, float bounds_max_x = 1.0f, float bounds_max_y = 1.0f)
 	{
 		ImPlot::PlotHeatmap<float>(TCHAR_TO_ANSI(*label_id), values.GetData(), rows, cols, scale_min, scale_max, label_fmt.Len() > 0 ? TCHAR_TO_ANSI(*label_fmt) : nullptr, ImPlotPoint(bounds_min_x, bounds_min_y), ImPlotPoint(bounds_max_x, bounds_max_y));
 	}
@@ -742,50 +1346,46 @@ public:
 	// If #density is true, the PDF is visualized. If both are true, the CDF is visualized. If #range is left unspecified, the min/max of #values will be used as the range.
 	// If #range is specified, outlier values outside of the range are not binned. However, outliers still count toward normalizing and cumulative counts unless #outliers is false. The largest bin count or density is returned.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item", Meta = (ReturnDisplayName = "Value"))
-	static float PlotHistogramInt(const FString& label_id, const TArray<int32>& values, const TEnumAsByte<EImPlotBin::Type> bins = EImPlotBin::Type::ImPlotBin_Sturges,
+	static float PlotHistogramInt(const FString& label_id, const TArray<int32>& values, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotBin)) int32 bins = -2,
 		bool cumulative = false, bool density = false, float rangeMin = 0, float rangeMax = 0, bool outliers = true, float bar_scale = 1.0f)
 	{
-		return ImPlot::PlotHistogram(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), bins, cumulative, density, ImPlotRange(rangeMin, rangeMax), outliers, bar_scale);
+		return ImPlot::PlotHistogram<int32>(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), bins, cumulative, density, ImPlotRange(rangeMin, rangeMax), outliers, bar_scale);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item", Meta = (ReturnDisplayName = "Value"))
-	static float PlotHistogramFloat(const FString& label_id, const TArray<float>& values, TEnumAsByte<EImPlotBin::Type> bins = EImPlotBin::Type::ImPlotBin_Sturges,
+	static float PlotHistogramFloat(const FString& label_id, const TArray<float>& values, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotBin)) int32 bins = -2,
 		bool cumulative = false, bool density = false, float rangeMin = 0, float rangeMax = 0, bool outliers = true, float bar_scale = 1.0f)
 	{
-		return ImPlot::PlotHistogram(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), bins, cumulative, density, ImPlotRange(rangeMin, rangeMax), outliers, bar_scale);
+		return ImPlot::PlotHistogram<float>(TCHAR_TO_ANSI(*label_id), values.GetData(), values.Num(), bins, cumulative, density, ImPlotRange(rangeMin, rangeMax), outliers, bar_scale);
 	}
 
 	// Plots two dimensional, bivariate histogram as a heatmap. #x_bins and #y_bins can be a positive integer or an ImPlotBin. If #density is true, the PDF is visualized.
 	// If #range is left unspecified, the min/max of #xs an #ys will be used as the ranges. If #range is specified, outlier values outside of range are not binned.
 	// However, outliers still count toward the normalizing count for density plots unless #outliers is false. The largest bin count or density is returned.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item", Meta = (ReturnDisplayName = "Value"))
-	static float PlotHistogram2DInt(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, FVector2D rangeMin, FVector2D rangeMax, TEnumAsByte<EImPlotBin::Type> x_bins = EImPlotBin::Type::ImPlotBin_Sturges, TEnumAsByte<EImPlotBin::Type> y_bins = EImPlotBin::Type::ImPlotBin_Sturges, bool density=false, bool outliers=true)
+	static float PlotHistogram2DInt(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, FVector2D X_Range, FVector2D Y_Range, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotBin)) int32 x_bins = -2, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotBin)) int32 y_bins = -2, bool density=false, bool outliers=true)
 	{
-		check(xs.Num() == ys.Num())
-		return ImPlot::PlotHistogram2D(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), x_bins, y_bins, density, ImPlotLimits(rangeMin.X, rangeMax.X, rangeMin.Y, rangeMax.Y), outliers);
+		return ImPlot::PlotHistogram2D<int32>(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), x_bins, y_bins, density, ImPlotLimits(X_Range.X, X_Range.Y, Y_Range.X, Y_Range.Y), outliers);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item", Meta = (ReturnDisplayName = "Value"))
-	static float PlotHistogram2DFloat(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, FVector2D rangeMin, FVector2D rangeMax, TEnumAsByte<EImPlotBin::Type> x_bins = EImPlotBin::Type::ImPlotBin_Sturges, TEnumAsByte<EImPlotBin::Type> y_bins = EImPlotBin::Type::ImPlotBin_Sturges, bool density=false, bool outliers=true)
+	static float PlotHistogram2DFloat(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, FVector2D X_Range, FVector2D Y_Range, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotBin)) int32 x_bins = -2, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotBin)) int32 y_bins = -2, bool density=false, bool outliers=true)
 	{
-		check(xs.Num() == ys.Num())
-		return ImPlot::PlotHistogram2D(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), x_bins, y_bins, density, ImPlotLimits(rangeMin.X, rangeMax.X, rangeMin.Y, rangeMax.Y), outliers);
+		return ImPlot::PlotHistogram2D<float>(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), x_bins, y_bins, density, ImPlotLimits(X_Range.X, X_Range.Y, Y_Range.X, Y_Range.Y), outliers);
 	}
 	
 	
 	// Plots digital data. Digital plots do not respond to y drag or zoom, and are always referenced to the bottom of the plot.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotDigitalInt(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, int offset = 0)
+	static void PlotDigitalInt(const FString& label_id, const TArray<int32>& xs, const TArray<int32>& ys, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num())
 		ImPlot::PlotDigital(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), offset, sizeof(int32));
 	}
 
 	// Plots digital data. Digital plots do not respond to y drag or zoom, and are always referenced to the bottom of the plot.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotDigitalFloat(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, int offset = 0)
+	static void PlotDigitalFloat(const FString& label_id, const TArray<float>& xs, const TArray<float>& ys, int32 offset = 0)
 	{
-		check(xs.Num() == ys.Num())
 		ImPlot::PlotDigital(TCHAR_TO_ANSI(*label_id), xs.GetData(), ys.GetData(), xs.Num(), offset, sizeof(float));
 	}
 	
@@ -794,9 +1394,17 @@ public:
 	
 
 	
-	//UFUNCTION(BlueprintCallable, Category = "Implot|Item")
-	static void PlotImage(const FString& label_id, ImTextureID user_texture_id, const FImPlotPoint& bounds_min, const FImPlotPoint& bounds_max, const FVector2D& uv0, const FVector2D& uv1, const FVector4& tint_col)
-	{ ImPlot::PlotImage(TCHAR_TO_ANSI(*label_id), user_texture_id, bounds_min, bounds_max, ToImVec2(uv0), ToImVec2(uv1), ToImVec4(tint_col));}
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
+	static void PlotImage(const FString& label_id, UTexture2D* user_texture_id, FVector2D bounds_min, FVector2D bounds_max, FVector2D uv0, FVector2D uv1, UPARAM(ref) FLinearColor& tint_col)
+	{
+		FImGuiTextureHandle handle = FImGuiModule::Get().FindTextureHandle(user_texture_id->GetFName());
+		if(!handle.IsValid())
+		{
+			handle = FImGuiModule::Get().RegisterTexture(user_texture_id->GetFName(), user_texture_id);
+		}
+
+		ImPlot::PlotImage(TCHAR_TO_ANSI(*label_id), handle, ToImPlotPoint(bounds_min), ToImPlotPoint(bounds_max), ToImVec2(uv0), ToImVec2(uv1), ToImVec4(tint_col));
+	}
 	
 	// Plots a centered text label at point x,y with optional pixel offset. Text color can be changed with ImPlot::PushStyleColor(ImPlotCol_InlayText, ...).
 	UFUNCTION(BlueprintCallable, Category = "Implot|Item")
@@ -812,7 +1420,7 @@ public:
 	//-----------------------------------------------------------------------------
   
 	// Set the axes range limits of the next plot. Call right before BeginPlot(). If ImGuiCond_Always is used, the axes limits will be locked.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Utils", meta = (AdvancedDisplay = 4))
+	UFUNCTION(BlueprintCallable, Category = "Implot|Utils", meta = (AdvancedDisplay = "4"))
 	static void SetNextPlotLimits(float xmin, float xmax, float ymin, float ymax, int32 ImGuiCond = 2/*ImGuiCond_Once*/)
 	{
 		ImPlot::SetNextPlotLimits(xmin, xmax, ymin, ymax, ImGuiCond);
@@ -825,8 +1433,15 @@ public:
 
 	// Set the Y axis range limits of the next plot. Call right before BeginPlot(). If ImGuiCond_Always is used, the Y axis limits will be locked.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Utils")
-	static void SetNextPlotLimitsY(float ymin, float ymax, int32 ImGuiCond = 2/*ImGuiCond_Once*/, EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_1)
-	{ ImPlot::SetNextPlotLimitsY(ymin, ymax, ImGuiCond, static_cast<ImPlotYAxis>(y_axis)); }
+	static void SetNextPlotLimitsY(UPARAM(ref) float& ymin, UPARAM(ref) float& ymax, int32 ImGuiCond = 2/*ImGuiCond_Once*/, EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_1)
+	{
+		double localMin = ymin;
+		double localMax = ymax;
+		//ImPlot::SetNextPlotLimitsY(localMin, localMax, ImGuiCond, y_axis == EImPlotYAxis::ImPlotYAxis_Auto ? -1 : static_cast<ImPlotYAxis>(y_axis));
+		ImPlot::SetNextPlotLimitsY(localMin, localMax, ImGuiCond, ToInt32(y_axis));
+		ymin = localMin;
+		ymax = localMax;
+	}
 	
 	// Links the next plot limits to external values. Set to NULL for no linkage. The pointer data must remain valid until the matching call EndPlot.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Utils")
@@ -870,14 +1485,14 @@ public:
 	static void SetNextPlotTicksY(UPARAM(ref) TArray<float>& values, UPARAM(ref) TArray<FString>& labels, bool show_default = false, EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_1)
 	{
 		ConvertArrayFStringToArrayAnsi labelList(labels);
-		ImPlot::SetNextPlotTicksY((double*)values.GetData(), labels.Num(), labelList.GetData(), show_default, static_cast<ImPlotYAxis>(y_axis));
+		ImPlot::SetNextPlotTicksY((double*)values.GetData(), labels.Num(), labelList.GetData(), show_default, y_axis == EImPlotYAxis::ImPlotYAxis_Auto ? -1 : static_cast<ImPlotYAxis>(y_axis));
 	}
 	
 	UFUNCTION(BlueprintCallable, Category = "Implot|Utils")
 	static void SetNextPlotTicksY_A(float y_min, float y_max, UPARAM(ref) TArray<FString>& labels, bool show_default = false, EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_1)
 	{
 		ConvertArrayFStringToArrayAnsi labelList(labels);
-		ImPlot::SetNextPlotTicksY(y_min, y_max, labels.Num(), labelList.GetData(), show_default, static_cast<ImPlotYAxis>(y_axis));
+		ImPlot::SetNextPlotTicksY(y_min, y_max, labels.Num(), labelList.GetData(), show_default, y_axis == EImPlotYAxis::ImPlotYAxis_Auto ? -1 : static_cast<ImPlotYAxis>(y_axis));
 	}
 	
 	
@@ -885,8 +1500,8 @@ public:
  
 	// Select which Y axis will be used for subsequent plot elements. The default is ImPlotYAxis_1, or the first (left) Y axis. Enable 2nd and 3rd axes with ImPlotFlags_YAxisX.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Utils")
-	static void SetPlotYAxis(int32 ImPlotYAxis_y_axis)
-	{ ImPlot::SetPlotYAxis(ImPlotYAxis_y_axis); }
+	static void SetPlotYAxis(EImPlotYAxis y_axis)
+	{ ImPlot::SetPlotYAxis(y_axis == EImPlotYAxis::ImPlotYAxis_Auto ? -1 : static_cast<ImPlotYAxis>(y_axis)); }
 
 	// Hides or shows the next plot item (i.e. as if it were toggled from the legend). Use ImGuiCond_Always if you need to forcefully set this every frame.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Utils")
@@ -895,13 +1510,13 @@ public:
  
 	// Convert pixels to a position in the current plot's coordinate system. A negative y_axis uses the current value of SetPlotYAxis (ImPlotYAxis_1 initially).
 	UFUNCTION(BlueprintPure, Category = "Implot|Utils", Meta = (ReturnDisplayName = "Position"))
-	static FImPlotPoint PixelsToPlot(float x, float y, int32 ImPlotYAxis_y_axis = -1)
-	{ return ImPlot::PixelsToPlot(x, y, ImPlotYAxis_y_axis); }
+	static FImPlotPoint PixelsToPlot(float x, float y, EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_Auto)
+	{ return ImPlot::PixelsToPlot(x, y, y_axis == EImPlotYAxis::ImPlotYAxis_Auto ? -1 : static_cast<ImPlotYAxis>(y_axis)); }
 
 	// Convert a position in the current plot's coordinate system to pixels. A negative y_axis uses the current value of SetPlotYAxis (ImPlotYAxis_1 initially).
 	UFUNCTION(BlueprintPure, Category = "Implot|Utils", Meta = (ReturnDisplayName = "Pixels"))
-	static FVector2D PlotToPixels(float x, float y, int32 ImPlotYAxis_y_axis = -1)
-	{ return ToVector2D(ImPlot::PlotToPixels(x, y, ImPlotYAxis_y_axis)); }
+	static FVector2D PlotToPixels(float x, float y, EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_Auto)
+	{ return ToVector2D(ImPlot::PlotToPixels(x, y, ToInt32(y_axis))); }
 
 	// Get the current Plot position (top-left) in pixels.
 	UFUNCTION(BlueprintPure, Category = "Implot|Utils", Meta = (ReturnDisplayName = "Position"))
@@ -914,30 +1529,43 @@ public:
 	{ return ToVector2D(ImPlot::GetPlotSize()); }
 
 	// Returns true if the plot area in the current plot is hovered.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Utils")
+	UFUNCTION(BlueprintPure, Category = "Implot|Utils")
 	static bool IsPlotHovered()
 	{ return ImPlot::IsPlotHovered(); }
 
 	// Returns true if the XAxis plot area in the current plot is hovered.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Utils")
+	UFUNCTION(BlueprintPure, Category = "Implot|Utils")
 	static bool IsPlotXAxisHovered()
 	{ return ImPlot::IsPlotXAxisHovered(); }
 	
 	// Returns true if the YAxis[n] plot area in the current plot is hovered.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Utils")
-	static bool IsPlotYAxisHovered(int32 ImPlotYAxis_y_axis = 0)
-	{ return ImPlot::IsPlotYAxisHovered(ImPlotYAxis_y_axis); }
+	UFUNCTION(BlueprintPure, Category = "Implot|Utils")
+	static bool IsPlotYAxisHovered(EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_Auto)
+	{ return ImPlot::IsPlotYAxisHovered(ToInt32(y_axis)); }
 
 	// Returns the mouse position in x,y coordinates of the current plot. A negative y_axis uses the current value of SetPlotYAxis (ImPlotYAxis_1 initially).
 	UFUNCTION(BlueprintPure, Category = "Implot|Utils", Meta = (ReturnDisplayName = "MousePos"))
-	static FImPlotPoint GetPlotMousePos(int32 ImPlotYAxis_y_axis = -1)
-	{ return ImPlot::GetPlotMousePos(ImPlotYAxis_y_axis); }
+	static FImPlotPoint GetPlotMousePos(EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_Auto)
+	{ return ImPlot::GetPlotMousePos(ToInt32(y_axis)); }
 	
 	// Returns the current plot axis range. A negative y_axis uses the current value of SetPlotYAxis (ImPlotYAxis_1 initially).
 	UFUNCTION(BlueprintPure, Category = "Implot|Utils", Meta = (ReturnDisplayName = "Limits"))
-	static FImPlotLimits GetPlotLimits(int32 ImPlotYAxis_y_axis = -1)
-	{ return ImPlot::GetPlotLimits(ImPlotYAxis_y_axis); }
- 
+	static FImPlotLimits GetPlotLimits(EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_Auto)
+	{ return ImPlot::GetPlotLimits(ToInt32(y_axis)); }
+
+	// Returns true if the current plot is being box selected.
+	UFUNCTION(BlueprintPure, Category = "Implot|Utils")
+	static bool IsPlotSelected()
+	{ return ImPlot::IsPlotSelected();	 }
+	
+	
+	// Returns the current plot box selection bounds.
+	UFUNCTION(BlueprintPure, Category = "Implot|Utils")
+	static FImPlotLimits GetPlotSelection(EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_Auto)
+	{
+		return ImPlot::GetPlotSelection(ToInt32(y_axis));	
+	}
+	
 	// Returns true if the current plot is being queried. Query must be enabled with ImPlotFlags_Query.
 	UFUNCTION(BlueprintPure, Category = "Implot|Utils")
 	static bool IsPlotQueried()
@@ -945,8 +1573,13 @@ public:
 	
 	// Returns the current plot query bounds. Query must be enabled with ImPlotFlags_Query.
 	UFUNCTION(BlueprintPure, Category = "Implot|Utils", Meta = (ReturnDisplayName = "Limits"))
-	static FImPlotLimits GetPlotQuery(int32 ImPlotYAxis_y_axis = -1)
-	{ return ImPlot::GetPlotQuery(ImPlotYAxis_y_axis); }
+	static FImPlotLimits GetPlotQuery(EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_Auto)
+	{ return ImPlot::GetPlotQuery(ToInt32(y_axis)); }
+
+	// Set the current plot query bounds. Query must be enabled with ImPlotFlags_Query.
+	UFUNCTION(BlueprintSetter, Category = "Implot|Utils", Meta = (ReturnDisplayName = "Limits"))
+	static void SetPlotQuery(UPARAM(ref) FImPlotLimits& query, EImPlotYAxis y_axis = EImPlotYAxis::ImPlotYAxis_Auto)
+	{ return ImPlot::SetPlotQuery((ImPlotLimits)query, ToInt32(y_axis)); }
  
 	//-----------------------------------------------------------------------------
 	// Plot Tools
@@ -1002,12 +1635,12 @@ public:
  
 	// Set the location of the current plot's legend.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Legend Utils and Tools")
-	static void SetLegendLocation(TEnumAsByte<EImPlotLocation::Type> location, EImPlotOrientation orientation = EImPlotOrientation::ImPlotOrientation_Vertical, bool outside = false)
+	static void SetLegendLocation(UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotLocation)) int32 location, EImPlotOrientation orientation = EImPlotOrientation::ImPlotOrientation_Vertical, bool outside = false)
 	{ ImPlot::SetLegendLocation(location, static_cast<ImPlotOrientation>(orientation), outside); }
 
 	// Set the location of the current plot's mouse position text (default = South|East).
 	UFUNCTION(BlueprintCallable, Category = "Implot|Legend Utils and Tools")
-	static void SetMousePosLocation(TEnumAsByte<EImPlotLocation::Type> location)
+	static void SetMousePosLocation(UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotLocation)) int32 location)
 	{ ImPlot::SetMousePosLocation(location); }
 
 	// Returns true if a plot item legend entry is hovered.
@@ -1042,7 +1675,7 @@ public:
 	// Turns the current plot's Y-Axis into a drag and drop target. Don't forget to call EndDragDropTarget!
 	UFUNCTION(BlueprintCallable, Category = "Implot|Drag and Drop Utils")
 	static bool BeginDragDropTargetY(EImPlotYAxis axis = EImPlotYAxis::ImPlotYAxis_1)
-	{ return ImPlot::BeginDragDropTargetY(static_cast<ImPlotYAxis>(axis)); }
+	{ return ImPlot::BeginDragDropTargetY(ToInt32(axis)); }
 
 	// Turns the current plot's legend into a drag and drop target. Don't forget to call EndDragDropTarget!
 	UFUNCTION(BlueprintCallable, Category = "Implot|Drag and Drop Utils")
@@ -1071,7 +1704,7 @@ public:
 	// Turns the current plot's Y-axis into a drag and drop source. Don't forget to call EndDragDropSource!
 	UFUNCTION(BlueprintCallable, Category = "Implot|Drag and Drop Utils")
 	static bool BeginDragDropSourceY(EImPlotYAxis axis = EImPlotYAxis::ImPlotYAxis_1, int32 ImGuiKeyModFlags_key_mode = 1, int32 ImGuiDragDropFlags = 0)
-	{ return ImPlot::BeginDragDropSourceY(static_cast<ImPlotYAxis>(axis), ImGuiKeyModFlags_key_mode, ImGuiDragDropFlags); }
+	{ return ImPlot::BeginDragDropSourceY(ToInt32(axis), ImGuiKeyModFlags_key_mode, ImGuiDragDropFlags); }
 
 	// Turns an item in the current plot's legend into drag and drop source. Don't forget to call EndDragDropSource!
 	UFUNCTION(BlueprintCallable, Category = "Implot|Drag and Drop Utils")
@@ -1088,8 +1721,8 @@ public:
 	//-----------------------------------------------------------------------------
  
 	// Provides access to plot style structure for permanant modifications to colors, sizes, etc.
-	//UFUNCTION(BlueprintCallable, Category = "Implot|Plot and Item Styling")
-	static ImPlotStyle& GetStyle() { return ImPlot::GetStyle(); }
+	UFUNCTION(BlueprintPure, Category = "Implot|Plot and Item Styling", meta=(DisplayName = "GetPlotStyle"))
+	static FImPlotStylePointer GetStyle() { FImPlotStylePointer s; s.style = &ImPlot::GetStyle(); return s; }
  
 	// Style colors for current ImGui style (default).
 	//UFUNCTION(BlueprintCallable, Category = "Implot|Plot and Item Styling")
@@ -1132,7 +1765,7 @@ public:
 
 	// Temporarily modify a style variable of int type. Don't forget to call PopStyleVar!
 	UFUNCTION(BlueprintCallable, Category = "Implot|Plot and Item Styling")
-	static void PushStyleVarA(EImPlotStyleVar idx, int val)
+	static void PushStyleVarA(EImPlotStyleVar idx, int32 val)
 	{ ImPlot::PushStyleVar(static_cast<ImPlotStyleVar>(idx), val); }
 
 	// Temporarily modify a style variable of ImVec2 type. Don't forget to call PopStyleVar!
@@ -1141,7 +1774,7 @@ public:
 	{ ImPlot::PushStyleVar(static_cast<ImPlotStyleVar>(idx), ToImVec2(val)); }
 
 	// Undo temporary style modification. Undo multiple pushes at once by increasing count.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Plot and Item Styling", meta=(AdvancedDisplay = "count"))
+	UFUNCTION(BlueprintCallable, Category = "Implot|Plot and Item Styling", meta = (AdvancedDisplay = "count"))
 	static void PopStyleVar(int32 count = 1)
 	{ ImPlot::PopStyleVar(count); }
  
@@ -1161,10 +1794,10 @@ public:
 	{ ImPlot::SetNextFillStyle(ToImVec4(col), alpha_mod); }
 
 	// Set the marker style for the next item only.
-	UFUNCTION(BlueprintCallable, Category = "Implot|Plot and Item Styling", meta = (AdvancedDisplay = 1))
-	static void SetNextMarkerStyle(const TEnumAsByte<EImPlotMarker::Type> marker = EImPlotMarker::Type::ImPlotMarker_None,
+	UFUNCTION(BlueprintCallable, Category = "Implot|Plot and Item Styling", meta = (AdvancedDisplay = "1"))
+	static void SetNextMarkerStyle(const EImPlotMarker marker = EImPlotMarker::ImPlotMarker_None,
 		float size = -1, FLinearColor fill = FLinearColor(0, 0, 0, -1), float weight = -1, FLinearColor outline = FLinearColor(0, 0, 0, -1))
-	{ ImPlot::SetNextMarkerStyle(marker, size, ToImVec4(fill), weight, ToImVec4(outline)); }
+	{ ImPlot::SetNextMarkerStyle(ToInt32(marker), size, ToImVec4(fill), weight, ToImVec4(outline)); }
 
 	// Set the error bar style for the next item only.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Plot and Item Styling")
@@ -1183,8 +1816,8 @@ public:
 	
 	// Returns the null terminated string name for an ImPlotMarker.
 	UFUNCTION(BlueprintPure, Category = "Implot|Plot and Item Styling", Meta = (ReturnDisplayName = "MarkerName"))
-	static FString GetMarkerName(TEnumAsByte<EImPlotMarker::Type> idx)
-	{ return ANSI_TO_TCHAR(ImPlot::GetMarkerName(idx)); }
+	static FString GetMarkerName(EImPlotMarker idx)
+	{ return ANSI_TO_TCHAR(ImPlot::GetMarkerName(ToInt32(idx))); }
 	
 	//-----------------------------------------------------------------------------
 	// Colormaps
@@ -1210,8 +1843,8 @@ public:
 	
 	// Temporarily switch to one of the built-in colormaps.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Colormaps")
-	static void PushColormap(EImPlotColormap cmap)
-	{ ImPlot::PushColormap(static_cast<ImPlotColormap>(cmap)); }
+	static void PushColormap(UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotColormap)) int32 cmap)
+	{ ImPlot::PushColormap(cmap); }
 	
 	// Temporarily switch to your custom colormap. The pointer data must persist until the matching call to PopColormap!
 	UFUNCTION(BlueprintCallable, Category = "Implot|Colormaps")
@@ -1249,26 +1882,26 @@ public:
 
 	// Sample a color from the current colormap given t between 0 and 1.
 	UFUNCTION(BlueprintPure, Category = "Implot|Colormaps")
-	static FLinearColor SampleColormap(float t, EImPlotColormap cmap)
-	{ return ToLinearColor(ImPlot::SampleColormap(t, static_cast<ImPlotColormap>(cmap))); }
+	static FLinearColor SampleColormap(float t, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotColormap)) int32 cmap = -1)
+	{ return ToLinearColor(ImPlot::SampleColormap(t, cmap)); }
 
 	 
 	// Shows a vertical color scale with linear spaced ticks using the specified color map. Use double hashes to hide label (e.g. "##NoLabel").
 	UFUNCTION(BlueprintCallable, Category = "Implot|Colormaps")
-	static void ColormapScale(const FString& label, float scale_min, float scale_max, FVector2D size, EImPlotColormap cmap)
-	{ ImPlot::ColormapScale(TCHAR_TO_ANSI(*label), scale_min, scale_max, ToImVec2(size), static_cast<ImPlotColormap>(cmap)); }
+	static void ColormapScale(const FString& label, float scale_min, float scale_max, FVector2D size, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotColormap)) int32 cmap = -1)
+	{ ImPlot::ColormapScale(TCHAR_TO_ANSI(*label), scale_min, scale_max, ToImVec2(size), cmap); }
 
 	// Shows a horizontal slider with a colormap gradient background. Optionally returns the color sampled at t in [0 1].
 	UFUNCTION(BlueprintCallable, Category = "Implot|Colormaps")
-	static bool ColormapSlider(const FString& label, UPARAM(ref) float& t, UPARAM(ref) FVector4& out, FString format, EImPlotColormap cmap)
-	{ return ImPlot::ColormapSlider(TCHAR_TO_ANSI(*label), &t, reinterpret_cast<ImVec4*>(&out), TCHAR_TO_ANSI(*format), static_cast<ImPlotColormap>(cmap)); }
+	static bool ColormapSlider(const FString& label, UPARAM(ref) float& t, UPARAM(ref) FVector4& out, FString format, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotColormap)) int32 cmap = -1)
+	{ return ImPlot::ColormapSlider(TCHAR_TO_ANSI(*label), &t, reinterpret_cast<ImVec4*>(&out), TCHAR_TO_ANSI(*format), cmap); }
 
 	// Shows a button with a colormap gradient brackground.
 	UFUNCTION(BlueprintCallable, Category = "Implot|Colormaps", meta = (ExpandEnumAsExecs="OutResult"))
-	static void ColormapButton(const FString& label, FVector2D size, EImPlotColormap cmap, TEnumAsByte<EImGuiFlowControl::Type>& OutResult)
+	static void ColormapButton(const FString& label, FVector2D size, TEnumAsByte<EImGuiFlowControl::Type>& OutResult, UPARAM(meta=(Bitmask, BitmaskEnum=EImPlotColormap)) int32 cmap = -1)
 	{
 		OutResult = EImGuiFlowControl::Failure;
-		if(ImPlot::ColormapButton(TCHAR_TO_ANSI(*label), ToImVec2(size), static_cast<ImPlotColormap>(cmap)))
+		if(ImPlot::ColormapButton(TCHAR_TO_ANSI(*label), ToImVec2(size), cmap))
 			OutResult = EImGuiFlowControl::Success;
 	}
 
@@ -1376,4 +2009,106 @@ public:
 	
 	static void GenericArray_Shuffle2(void* TargetArray, const FArrayProperty* ArrayProp);
  
+};
+
+/**
+* Vector
+*/
+UCLASS()
+class IMGUI_API UImplotWrapperVectorFunctionLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+
+public:
+		
+	// Plots a standard 2D line plot.
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4", DisplayName = "Plotine Vector"))
+	static void PlotLine(const FString& label_id_x, const FString& label_id_y, const FString& label_id_z, const TArray<FVector>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, float y0 = 0.0f, float z0 = 0.0f)
+	{
+		if(label_id_x.Len() > 0)
+			ImPlot::PlotLine<float>(TCHAR_TO_ANSI(*label_id_x), reinterpret_cast<const float*>(values.GetData())+0, count == -1 ? values.Num() : count, xscale, x0, 0, sizeof(FVector));
+		if(label_id_y.Len() > 0)
+			ImPlot::PlotLine<float>(TCHAR_TO_ANSI(*label_id_y), reinterpret_cast<const float*>(values.GetData())+1, count == -1 ? values.Num() : count, xscale, y0, 0, sizeof(FVector));
+		if(label_id_z.Len() > 0)
+			ImPlot::PlotLine<float>(TCHAR_TO_ANSI(*label_id_z), reinterpret_cast<const float*>(values.GetData())+2, count == -1 ? values.Num() : count, xscale, z0, 0, sizeof(FVector));
+	}
+	
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4", DisplayName = "PlotScatter Vector"))
+	static void PlotScatter(const FString& label_id_x, const FString& label_id_y, const FString& label_id_z, const TArray<FVector>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, float y0 = 0.0f, float z0 = 0.0f, int32 offset = 0)
+	{
+		if(label_id_x.Len() > 0)
+			ImPlot::PlotScatter<float>(TCHAR_TO_ANSI(*label_id_x), reinterpret_cast<const float*>(values.GetData())+0, count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(FVector));
+		if(label_id_y.Len() > 0)
+			ImPlot::PlotScatter<float>(TCHAR_TO_ANSI(*label_id_y), reinterpret_cast<const float*>(values.GetData())+1, count == -1 ? values.Num() : count, xscale, y0, offset, sizeof(FVector));
+		if(label_id_z.Len() > 0)
+			ImPlot::PlotScatter<float>(TCHAR_TO_ANSI(*label_id_z), reinterpret_cast<const float*>(values.GetData())+2, count == -1 ? values.Num() : count, xscale, z0, offset, sizeof(FVector));
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "4", DisplayName = "PlotStairs Vector"))
+	static void PlotStairs(const FString& label_id_x, const FString& label_id_y, const FString& label_id_z, const TArray<FVector>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, float y0 = 0.0f, float z0 = 0.0f, int32 offset = 0)
+	{
+		if(label_id_x.Len() > 0)
+			ImPlot::PlotStairs<float>(TCHAR_TO_ANSI(*label_id_x), reinterpret_cast<const float*>(values.GetData())+0, count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(FVector));
+		if(label_id_y.Len() > 0)
+			ImPlot::PlotStairs<float>(TCHAR_TO_ANSI(*label_id_y), reinterpret_cast<const float*>(values.GetData())+1, count == -1 ? values.Num() : count, xscale, y0, offset, sizeof(FVector));
+		if(label_id_z.Len() > 0)
+			ImPlot::PlotStairs<float>(TCHAR_TO_ANSI(*label_id_z), reinterpret_cast<const float*>(values.GetData())+2, count == -1 ? values.Num() : count, xscale, z0, offset, sizeof(FVector));
+	}
+};
+
+/**
+* Vector2D
+*/
+UCLASS()
+class IMGUI_API UImplotWrapperVector2DFunctionLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotLine Vector2D(values"))
+	static void PlotLine(const FString& label_id, const TArray<FVector2D>& values, int32 count = -1, int32 offset = 0)
+	{
+		ImPlot::PlotLine<float>(TCHAR_TO_ANSI(*label_id), reinterpret_cast<const float*>(values.GetData())+0, reinterpret_cast<const float*>(values.GetData())+1
+		, count == -1 ? values.Num() : count, offset, sizeof(FVector2D));
+	}
+	
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotLine Vector2D(x,y)"))
+	static void PlotLineB(const FString& label_id_x, const FString& label_id_y, const TArray<FVector2D>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, float y0 = 0.0f)
+	{
+		if(label_id_x.Len() > 0)
+			ImPlot::PlotLine<float>(TCHAR_TO_ANSI(*label_id_x), reinterpret_cast<const float*>(values.GetData())+0, count == -1 ? values.Num() : count, xscale, x0, 0, sizeof(FVector2D));
+		if(label_id_y.Len() > 0)
+			ImPlot::PlotLine<float>(TCHAR_TO_ANSI(*label_id_y), reinterpret_cast<const float*>(values.GetData())+1, count == -1 ? values.Num() : count, xscale, y0, 0, sizeof(FVector2D));
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotScatter Vector2D(values"))
+	static void PlotScatter(const FString& label_id, const TArray<FVector2D>& values, int32 count = -1, int32 offset = 0)
+	{
+		ImPlot::PlotScatter<float>(TCHAR_TO_ANSI(*label_id), reinterpret_cast<const float*>(values.GetData())+0, reinterpret_cast<const float*>(values.GetData())+1
+		, count == -1 ? values.Num() : count, offset, sizeof(FVector2D));
+	}
+	
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotScatter Vector2D(x,y)"))
+	static void PlotScatterB(const FString& label_id_x, const FString& label_id_y, const TArray<FVector2D>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, float y0 = 0.0f, int32 offset = 0)
+	{
+		ImPlot::PlotScatter<float>(TCHAR_TO_ANSI(*label_id_x), reinterpret_cast<const float*>(values.GetData())+0, count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(FVector2D));
+		ImPlot::PlotScatter<float>(TCHAR_TO_ANSI(*label_id_y), reinterpret_cast<const float*>(values.GetData())+1, count == -1 ? values.Num() : count, xscale, y0, offset, sizeof(FVector2D));
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotStairs Vector2D(values)"))
+	static void PlotStairs(const FString& label_id, const TArray<FVector2D>& values, int32 count = -1, float xscale = 1.0f, int32 offset = 0)
+	{
+		ImPlot::PlotStairs<float>(TCHAR_TO_ANSI(*label_id), reinterpret_cast<const float*>(values.GetData())+0, reinterpret_cast<const float*>(values.GetData())+1
+			, count == -1 ? values.Num() : count, offset, sizeof(FVector2D));
+	}
+	
+	UFUNCTION(BlueprintCallable, Category = "Implot|Item", meta = (AdvancedDisplay = "3", DisplayName = "PlotStairs Vector2D(x,y)"))
+	static void PlotStairsB(const FString& label_id_x, const FString& label_id_y, const TArray<FVector2D>& values, int32 count = -1, float xscale = 1.0f, float x0 = 0.0f, float y0 = 0.0f, int32 offset = 0)
+	{
+		ImPlot::PlotStairs<float>(TCHAR_TO_ANSI(*label_id_x), reinterpret_cast<const float*>(values.GetData())+0, count == -1 ? values.Num() : count, xscale, x0, offset, sizeof(FVector2D));
+		ImPlot::PlotStairs<float>(TCHAR_TO_ANSI(*label_id_y), reinterpret_cast<const float*>(values.GetData())+1, count == -1 ? values.Num() : count, xscale, y0, offset, sizeof(FVector2D));
+	}
 };
